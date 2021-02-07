@@ -142,6 +142,13 @@ extern "C" {
 #error: End devices cannot have Green Power Combo enabled
 #endif
 #endif
+
+
+// Hardware includes
+#include "lib/MCP23017/MCP23017.h"
+#include "lib/LED/StaticLED.h"
+#include "myconfig.h"
+
 /*********************************************************************
  * MACROS
  */
@@ -523,6 +530,24 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   // Initialize application
   zclSampleLight_initialization();
+
+  I2C_Params i2cParams;
+  I2C_Transaction i2cTransaction;
+  I2C_Params_init(&i2cParams);
+  i2cParams.bitRate = I2C_100kHz;
+  i2c = I2C_open(CONFIG_I2C_0, &i2cParams);
+
+  // Set up the io expander
+  MCP23017 mcp = MCP23017(i2c, 0b0100001);
+  mcp.init();
+
+#if SAEMS_HARDWARE_VERSION == 0
+  StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_B, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_R);
+#elif SAEMS_HARDWARE_VERSION == 1
+  StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_R, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_B);
+#endif
+
+  led.set(RGB_States::RED | RGB_States::GREEN);
 
   // No return from task process
   zclSampleLight_process_loop();
