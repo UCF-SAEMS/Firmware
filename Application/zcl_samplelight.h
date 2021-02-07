@@ -159,7 +159,7 @@ extern uint8_t  zclSampleLight_LevelDefaultMoveRate;
 /*********************************************************************
  * FUNCTIONS
  */
-
+void sampleApp_task(NVINTF_nvFuncts_t *pfnNV);
 /*
  *  Reset all writable attributes to their default values.
  */

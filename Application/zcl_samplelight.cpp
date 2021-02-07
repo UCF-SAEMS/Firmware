@@ -116,6 +116,9 @@
 #endif
 
 #if defined ( BDB_TL_INITIATOR )
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "touchlink_initiator_app.h"
 #elif defined ( BDB_TL_TARGET )
 #include "touchlink_target_app.h"
