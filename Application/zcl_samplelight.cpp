@@ -151,12 +151,18 @@ extern "C" {
 #include <ti/display/DisplayUart.h>
 #include <ti/display/DisplayExt.h>
 #include <ti/display/AnsiColor.h>
+#include "stdio.h"
 
 // Hardware includes
+#include "myconfig.h"
+
 #include "lib/MCP23017/MCP23017.h"
 #include "lib/LED/StaticLED.h"
 #include "lib/LED/LEDBoard.h"
-#include "myconfig.h"
+
+#include "lib/BME280/bme280.h"
+#include "lib/BME280/bme280_defs.h"
+#include "lib/BME280/bme280_if.h"
 
 /*********************************************************************
  * MACROS
@@ -546,46 +552,16 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   I2C_init();
 
   Display_Handle display;
-
-
   /* Open the display for output */
   display = Display_open(Display_Type_UART, NULL);
-  if (display == NULL) {
-      /* Failed to open display driver */
-      while (1);
+  if (display == NULL)
+  {
+    /* Failed to open display driver */
+    while (1)
+      ;
   }
 
-  Display_printf(display, 0, 0, "Starting the SPI master example");
-
-//  /* Initialize display and try to open both UART and LCD types of display. */
-//  Display_Params params;
-//  Display_Params_init(&params);
-//  params.lineClearMode = DISPLAY_CLEAR_BOTH;
-//
-//  /*
-//   * Open both an available LCD display and an UART display.
-//   * Whether the open call is successful depends on what is present in the
-//   * Display_config[] array of the driver configuration file.
-//   */
-//  Display_Handle hSerial = Display_open(Display_Type_UART, &params);
-//  x = x + 1;
-//
-//  if (hSerial == NULL)
-//  {
-//    /* Failed to open a display */
-//    while (1)
-//    {
-//    }
-//  }
-//
-//
-//
-//
-//  /* Check if the selected Display type was found and successfully opened */
-//  if (hSerial)
-//  {
-//    Display_printf(hSerial, 0, 0, "Hello Serial!");
-//  }
+  Display_printf(display, 0, 0, "-- SAEMS Startup --");
 
   I2C_Handle i2c;
   I2C_Params i2cParams;
@@ -593,6 +569,36 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   I2C_Params_init(&i2cParams);
   i2cParams.bitRate = I2C_100kHz;
   i2c = I2C_open(CONFIG_I2C_0, &i2cParams);
+
+  struct bme280_data bme_data;
+  struct bme280_dev bme_dev;
+
+  bme_dev = { 0 };
+  bme_data = { 0 };
+
+  bme280_if_init(&bme_dev, &i2c);
+  char buffer[500];
+
+  for (;;)
+  {
+    bme280_if_get_all_sensor_data(&bme_data, &bme_dev);
+
+    float temp, press, hum;
+
+    temp = 0.01f * bme_data.temperature;
+    press = 0.01f * bme_data.pressure;
+    hum = 1.0f / 1024.0f * bme_data.humidity;
+
+    buffer[0] = '\0';
+    sprintf(buffer, "BME280: %6.2f deg C, %7.2f hPa, %6.2f %%RH\r\n", temp, press, hum);
+    Display_printf(display, 1, 0, "%s", buffer);
+
+    buffer[0] = '\0';
+    sprintf(buffer, "BME280: %6u deg C, %7u hPa, %6u %%RH\r\n", bme_data.temperature, bme_data.pressure, bme_data.humidity);
+    Display_printf(display, 2, 0, "%s", buffer);
+
+    Task_sleep(2000 * (1000 / Clock_tickPeriod));
+  }
 
   // Set up the io expander
   MCP23017 mcp = MCP23017(i2c, 0b0100001);
