@@ -79,6 +79,8 @@
 /*********************************************************************
  * INCLUDES
  */
+#define CUI_DISABLE
+
 #include "rom_jt_154.h"
 #include "zcomdef.h"
 #include "zcl.h"
@@ -143,6 +145,12 @@ extern "C" {
 #endif
 #endif
 
+
+/* Display Header files */
+#include <ti/display/Display.h>
+#include <ti/display/DisplayUart.h>
+#include <ti/display/DisplayExt.h>
+#include <ti/display/AnsiColor.h>
 
 // Hardware includes
 #include "lib/MCP23017/MCP23017.h"
@@ -523,6 +531,7 @@ DMMPolicy_StackRole DMMPolicy_StackRole_Zigbee =
  *
  * @return      none
  */
+    int x = 0;
 void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 {
   // Save and register the function pointers to the NV drivers
@@ -532,8 +541,51 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   // Initialize application
   zclSampleLight_initialization();
 
+  Display_init();
   SPI_init();
   I2C_init();
+
+  Display_Handle display;
+
+
+  /* Open the display for output */
+  display = Display_open(Display_Type_UART, NULL);
+  if (display == NULL) {
+      /* Failed to open display driver */
+      while (1);
+  }
+
+  Display_printf(display, 0, 0, "Starting the SPI master example");
+
+//  /* Initialize display and try to open both UART and LCD types of display. */
+//  Display_Params params;
+//  Display_Params_init(&params);
+//  params.lineClearMode = DISPLAY_CLEAR_BOTH;
+//
+//  /*
+//   * Open both an available LCD display and an UART display.
+//   * Whether the open call is successful depends on what is present in the
+//   * Display_config[] array of the driver configuration file.
+//   */
+//  Display_Handle hSerial = Display_open(Display_Type_UART, &params);
+//  x = x + 1;
+//
+//  if (hSerial == NULL)
+//  {
+//    /* Failed to open a display */
+//    while (1)
+//    {
+//    }
+//  }
+//
+//
+//
+//
+//  /* Check if the selected Display type was found and successfully opened */
+//  if (hSerial)
+//  {
+//    Display_printf(hSerial, 0, 0, "Hello Serial!");
+//  }
 
   I2C_Handle i2c;
   I2C_Params i2cParams;
@@ -699,7 +751,7 @@ static void zclSampleLight_Init( void )
   //Setup ZDO callbacks
   SetupZStackCallbacks();
 
-#if defined ( BDB_TL_INITIATOR )
+#if defined ( BDB_TL_INITIATOR ) && !defined(CUI_DISABLE)
   zclSampleLight_BdbCommissioningModes |= BDB_COMMISSIONING_MODE_INITIATOR_TL;
 #endif
 
