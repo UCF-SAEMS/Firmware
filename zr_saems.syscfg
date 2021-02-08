@@ -10,6 +10,8 @@
  */
 const CCFG     = scripting.addModule("/ti/devices/CCFG");
 const rfdesign = scripting.addModule("/ti/devices/radioconfig/rfdesign");
+const Display  = scripting.addModule("/ti/display/Display", {}, false);
+const Display1 = Display.addInstance();
 const AESCBC   = scripting.addModule("/ti/drivers/AESCBC");
 const AESCBC1  = AESCBC.addInstance();
 const AESCCM   = scripting.addModule("/ti/drivers/AESCCM");
@@ -35,8 +37,6 @@ const SPI      = scripting.addModule("/ti/drivers/SPI", {}, false);
 const SPI1     = SPI.addInstance();
 const TRNG     = scripting.addModule("/ti/drivers/TRNG");
 const TRNG1    = TRNG.addInstance();
-const UART     = scripting.addModule("/ti/drivers/UART");
-const UART1    = UART.addInstance();
 const Button   = scripting.addModule("/ti/drivers/apps/Button");
 const Button1  = Button.addInstance();
 const Button2  = Button.addInstance();
@@ -58,6 +58,16 @@ CCFG.forceVddr                = true;
 CCFG.ccfgTemplate.$name       = "ti_devices_CCFGTemplate0";
 
 rfdesign.rfDesign = "LAUNCHXL-CC1352P-2";
+
+Display1.$name                    = "CONFIG_Display_0";
+Display1.enableANSI               = true;
+Display1.uart.$name               = "CONFIG_DISPLAY_UART_MINE";
+Display1.uart.uart.txPin.$assign  = "boosterpack.3";
+Display1.uart.uart.rxPin.$assign  = "boosterpack.4";
+Display1.uart.txPinInstance.$name = "CONFIG_PIN_5";
+Display1.uart.rxPinInstance.$name = "CONFIG_PIN_6";
+scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to XDS110 UART on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",Display1.uart.uart.txPin);
+scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to XDS110 UART on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",Display1.uart.uart.rxPin);
 
 AESCBC1.$name = "CONFIG_AESCBC_0";
 
@@ -105,14 +115,6 @@ scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad SP
 
 TRNG1.$name = "CONFIG_TRNG_0";
 
-UART1.$name               = "CONFIG_DISPLAY_UART";
-UART1.uart.txPin.$assign  = "boosterpack.3";
-UART1.uart.rxPin.$assign  = "boosterpack.4";
-UART1.txPinInstance.$name = "CONFIG_PIN_UART_TX";
-UART1.rxPinInstance.$name = "CONFIG_PIN_UART_RX";
-scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to XDS110 UART on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",UART1.uart.txPin);
-scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to XDS110 UART on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",UART1.uart.rxPin);
-
 Button1.$name                     = "CONFIG_BTN_LEFT";
 Button1.$hardware                 = system.deviceData.board.components["BTN-1"];
 Button1.gpioPin.$name             = "CONFIG_GPIO_BTN1";
@@ -155,11 +157,11 @@ zstack.advanced.tableSize.$name              = "ti_zstack_advanced_zstack_table_
  * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
  * re-solve from scratch.
  */
+Display1.uart.uart.$suggestSolution                   = "UART0";
 I2C1.i2c.$suggestSolution                             = "I2C0";
 SPI1.spi.$suggestSolution                             = "SSI0";
 SPI1.spi.dmaRxChannel.$suggestSolution                = "DMA_CH3";
 SPI1.spi.dmaTxChannel.$suggestSolution                = "DMA_CH4";
-UART1.uart.$suggestSolution                           = "UART0";
 Button1.gpioPin.gpioPin.$suggestSolution              = "boosterpack.13";
 Button2.gpioPin.gpioPin.$suggestSolution              = "boosterpack.8";
 LED1.pwmPin.timerObject.timer.$suggestSolution        = "GPTM0";
