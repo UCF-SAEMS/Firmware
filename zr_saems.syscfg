@@ -31,6 +31,8 @@ const Power    = scripting.addModule("/ti/drivers/Power");
 const RF       = scripting.addModule("/ti/drivers/RF");
 const SHA2     = scripting.addModule("/ti/drivers/SHA2");
 const SHA21    = SHA2.addInstance();
+const SPI      = scripting.addModule("/ti/drivers/SPI", {}, false);
+const SPI1     = SPI.addInstance();
 const TRNG     = scripting.addModule("/ti/drivers/TRNG");
 const TRNG1    = TRNG.addInstance();
 const UART     = scripting.addModule("/ti/drivers/UART");
@@ -83,9 +85,23 @@ NVS1.internalFlash.$name      = "ti_drivers_nvs_NVSCC26XX0";
 NVS1.internalFlash.regionBase = 0x52000;
 NVS1.internalFlash.regionSize = 0x4000;
 
-RF.$hardware = system.deviceData.board.components["SKY13317-373LF"];
+RF.$hardware             = system.deviceData.board.components["SKY13317-373LF"];
+RF.rfAntennaPin0.$assign = "DIO_28";
+RF.rfAntennaPin1.$assign = "DIO_29";
+RF.rfAntennaPin2.$assign = "DIO_30";
 
 SHA21.$name = "CONFIG_SHA2_0";
+
+SPI1.$name                 = "CONFIG_SPI_LEDBOARD";
+SPI1.spi.sclkPin.$assign   = "boosterpack.7";
+SPI1.spi.misoPin.$assign   = "boosterpack.14";
+SPI1.spi.mosiPin.$assign   = "boosterpack.24";
+SPI1.sclkPinInstance.$name = "CONFIG_PIN_0";
+SPI1.misoPinInstance.$name = "CONFIG_PIN_3";
+SPI1.mosiPinInstance.$name = "CONFIG_PIN_4";
+SPI1.mosiPinInstance.mode  = "Input";
+scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad SPI Bus on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",SPI1.spi.sclkPin);
+scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad SPI Bus on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",SPI1.spi.misoPin);
 
 TRNG1.$name = "CONFIG_TRNG_0";
 
@@ -140,9 +156,9 @@ zstack.advanced.tableSize.$name              = "ti_zstack_advanced_zstack_table_
  * re-solve from scratch.
  */
 I2C1.i2c.$suggestSolution                             = "I2C0";
-RF.rfAntennaPin0.$suggestSolution                     = "41";
-RF.rfAntennaPin1.$suggestSolution                     = "42";
-RF.rfAntennaPin2.$suggestSolution                     = "43";
+SPI1.spi.$suggestSolution                             = "SSI0";
+SPI1.spi.dmaRxChannel.$suggestSolution                = "DMA_CH3";
+SPI1.spi.dmaTxChannel.$suggestSolution                = "DMA_CH4";
 UART1.uart.$suggestSolution                           = "UART0";
 Button1.gpioPin.gpioPin.$suggestSolution              = "boosterpack.13";
 Button2.gpioPin.gpioPin.$suggestSolution              = "boosterpack.8";

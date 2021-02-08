@@ -147,6 +147,7 @@ extern "C" {
 // Hardware includes
 #include "lib/MCP23017/MCP23017.h"
 #include "lib/LED/StaticLED.h"
+#include "lib/LED/LEDBoard.h"
 #include "myconfig.h"
 
 /*********************************************************************
@@ -531,6 +532,10 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   // Initialize application
   zclSampleLight_initialization();
 
+  SPI_init();
+  I2C_init();
+
+  I2C_Handle i2c;
   I2C_Params i2cParams;
   I2C_Transaction i2cTransaction;
   I2C_Params_init(&i2cParams);
@@ -548,6 +553,18 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 #endif
 
   led.set(RGB_States::RED | RGB_States::GREEN);
+
+  LEDBoard ledboard = LEDBoard(CONFIG_SPI_LEDBOARD);
+  ledboard.init();
+
+  for (;;)
+  {
+    for (float br = 0; br < 360; br += .5)
+    {
+      ledboard.hsi(br, 1, 0.8);
+      Task_sleep(50 * (1000 / Clock_tickPeriod));
+    }
+  }
 
   // No return from task process
   zclSampleLight_process_loop();
