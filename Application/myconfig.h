@@ -11,6 +11,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include "lib/MCP23017/MCP23017.h"
+
+extern MCP23017 *mcpptr;
 
 
 #define SAEMS_HARDWARE_VERSION 0

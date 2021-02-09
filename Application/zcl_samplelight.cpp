@@ -533,6 +533,12 @@ DMMPolicy_StackRole DMMPolicy_StackRole_Zigbee =
  * @return      none
  */
     int x = 0;
+#include <xdc/runtime/System.h>
+
+     MCP23017 *mcpptr;
+#include "lib/W5500/w5500_init.h"
+#include "lib/W5500/ioLibrary_Driver-master/Ethernet/W5500/w5500.h"
+
 void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 {
   // Save and register the function pointers to the NV drivers
@@ -542,6 +548,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   // Initialize application
   zclSampleLight_initialization();
 
+  GPIO_init();
   Display_init();
   SPI_init();
   I2C_init();
@@ -574,49 +581,102 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   bme280_if_init(&bme_dev, &i2c);
   char buffer[500];
 
-  for (;;)
-  {
-    bme280_if_get_all_sensor_data(&bme_data, &bme_dev);
+  System_printf("hello world\r\n");
+  System_printf("hello world %02x\r\n", 0xDEADBEEF);
+  System_flush();
 
-    float temp, press, hum;
+//  for(;;){
+//    System_printf("hello world\r\n");
+//    System_flush();
+//    Task_sleep(2000 * (1000 / Clock_tickPeriod));
+//
+//  }
 
-    temp = 0.01f * bme_data.temperature;
-    press = 0.01f * bme_data.pressure;
-    hum = 1.0f / 1024.0f * bme_data.humidity;
-
-    buffer[0] = '\0';
-    sprintf(buffer, "BME280: %6.2f deg C, %7.2f hPa, %6.2f %%RH\r\n", temp, press, hum);
-    Display_printf(display, 1, 0, "%s", buffer);
-
-    buffer[0] = '\0';
-    sprintf(buffer, "BME280: %6u deg C, %7u hPa, %6u %%RH\r\n", bme_data.temperature, bme_data.pressure, bme_data.humidity);
-    Display_printf(display, 2, 0, "%s", buffer);
-
-    Task_sleep(2000 * (1000 / Clock_tickPeriod));
-  }
+//  for (;;)
+//  {
+//    bme280_if_get_all_sensor_data(&bme_data, &bme_dev);
+//
+//    float temp, press, hum;
+//
+//    temp = 0.01f * bme_data.temperature;
+//    press = 0.01f * bme_data.pressure;
+//    hum = 1.0f / 1024.0f * bme_data.humidity;
+//
+//    buffer[0] = '\0';
+//    sprintf(buffer, "BME280: %6.2f deg C, %7.2f hPa, %6.2f %%RH\r\n", temp, press, hum);
+//    Display_printf(display, 1, 0, "%s", buffer);
+//
+//    buffer[0] = '\0';
+//    sprintf(buffer, "BME280: %6u deg C, %7u hPa, %6u %%RH\r\n", bme_data.temperature, bme_data.pressure, bme_data.humidity);
+//    Display_printf(display, 2, 0, "%s", buffer);
+//
+//    Task_sleep(2000 * (1000 / Clock_tickPeriod));
+//  }
 
   // Set up the io expander
   MCP23017 mcp = MCP23017(i2c, 0b0100001);
   mcp.init();
 
-#if SAEMS_HARDWARE_VERSION == 0
-  StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_B, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_R);
-#elif SAEMS_HARDWARE_VERSION == 1
-  StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_R, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_B);
-#endif
+  mcpptr = &mcp;
+//#if SAEMS_HARDWARE_VERSION == 0
+//  StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_B, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_R);
+//#elif SAEMS_HARDWARE_VERSION == 1
+//  StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_R, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_B);
+//#endif
+//
+//  led.set(RGB_States::RED | RGB_States::GREEN);
+//
+//  LEDBoard ledboard = LEDBoard(CONFIG_SPI_LEDBOARD);
+//  ledboard.init();
 
-  led.set(RGB_States::RED | RGB_States::GREEN);
+  mcp.pinMode(MCP_PinMap::ETH_RST, OUTPUT);
+  mcp.pinMode(MCP_PinMap::FONT_CS, OUTPUT);
 
-  LEDBoard ledboard = LEDBoard(CONFIG_SPI_LEDBOARD);
-  ledboard.init();
+  wizchip_select();
+  Task_sleep(100 * (1000 / Clock_tickPeriod));
+  wizchip_deselect();
+  Task_sleep(100 * (1000 / Clock_tickPeriod));
+
+
+  /* W5500 Chip Reset */
+  mcp.digitalWrite(MCP_PinMap::ETH_RST, false);
+  mcp.digitalWrite(MCP_PinMap::FONT_CS, false);
+//  delay_cnt(5000);.
+  Task_sleep(50 * (1000 / Clock_tickPeriod));
+  mcp.digitalWrite(MCP_PinMap::ETH_RST, true);
+  mcp.digitalWrite(MCP_PinMap::FONT_CS, true);
+//  delay_cnt(10000);
+  Task_sleep(100 * (1000 / Clock_tickPeriod));
+
+  System_flush();
+  W5500_Init();
+
+  System_flush();
+
+  wiz_NetInfo gWIZNETINFO = {
+      { 0x00, 0x08, 0xDC, 0x44, 0x55, 0x66 },             // Mac address
+      { 192, 168, 1, 66 },                                // IP address
+      { 255, 255, 255, 0},                                // Subnet mask
+      { 192, 168, 1, 1},                                  // Gateway
+      { 8, 8, 8, 8},                                      // DNS Server
+  };
+
+  Net_Conf(gWIZNETINFO);
+
+  for(;;){
+  Display_Net_Conf();
+  System_flush();
+  Task_sleep(5000 * (1000 / Clock_tickPeriod));
+  }
+
 
   for (;;)
   {
-    for (float br = 0; br < 360; br += .5)
-    {
-      ledboard.hsi(br, 1, 0.8);
-      Task_sleep(50 * (1000 / Clock_tickPeriod));
-    }
+//    for (float br = 0; br < 360; br += .5)
+//    {
+//      ledboard.hsi(br, 1, 0.8);
+//      Task_sleep(50 * (1000 / Clock_tickPeriod));
+//    }
   }
 
   // No return from task process
