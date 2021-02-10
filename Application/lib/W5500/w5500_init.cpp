@@ -83,7 +83,7 @@ void Display_Net_Conf()
 
   // Display Network Information
   if (gWIZNETINFO.dhcp == NETINFO_DHCP)
-    printf("\r\n===== %s NET CONF : DHCP =====\r\n", (char*) tmpstr);
+    System_printf("\r\n===== %s NET CONF : DHCP =====\r\n", (char*) tmpstr);
   else
     System_printf("\r\n===== %s NET CONF : Static =====\r\n", (char*) tmpstr);
 
@@ -121,7 +121,7 @@ void W5500_Init()
 {
 
   SPI_Params_init(&spiParams);
-  spiParams.bitRate = 2400000;
+  spiParams.bitRate = 8000000; // supports up to 80 Mhz but layout / clock speed will limit this
   spiParams.dataSize = 8;
   spiParams.frameFormat = SPI_POL0_PHA0;
   masterSpi = SPI_open(CONFIG_SPI_W5500, &spiParams);

@@ -538,6 +538,25 @@ DMMPolicy_StackRole DMMPolicy_StackRole_Zigbee =
      MCP23017 *mcpptr;
 #include "lib/W5500/w5500_init.h"
 #include "lib/W5500/ioLibrary_Driver-master/Ethernet/W5500/w5500.h"
+#include "lib/W5500/ioLibrary_Driver-master/Internet/DHCP/dhcp.h"
+#include "lib/W5500/ioLibrary_Driver-master/Internet/DNS/dns.h"
+     volatile bool ip_assigned = false;
+#define DHCP_SOCKET     0
+#define DNS_SOCKET      1
+#define HTTP_SOCKET     2
+
+void Callback_IPAssigned(void)
+{
+  System_printf("Callback: IP assigned! Leased time: %d sec\r\n", getDHCPLeasetime());
+  System_flush();
+  ip_assigned = true;
+}
+
+void Callback_IPConflict(void)
+{
+  System_printf("Callback: IP conflict!\r\n");
+  System_flush();
+}
 
 void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 {
@@ -653,6 +672,14 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   System_flush();
 
+  // Give time for network to establish and handle ip negotiation
+  Task_sleep(5000 * (1000 / Clock_tickPeriod));
+
+  // 1K should be enough, see https://forum.wiznet.io/t/topic/1612/2
+  uint8_t dhcp_buffer[1024];
+  // 1K seems to be enough for this buffer as well
+  uint8_t dns_buffer[1024];
+
   wiz_NetInfo gWIZNETINFO = {
       { 0x00, 0x08, 0xDC, 0x44, 0x55, 0x66 },             // Mac address
       { 192, 168, 1, 66 },                                // IP address
@@ -661,12 +688,78 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
       { 8, 8, 8, 8},                                      // DNS Server
   };
 
-  Net_Conf(gWIZNETINFO);
+  System_printf("Calling DHCP_init()...\r\n");
+  System_flush();
+  wiz_NetInfo net_info = { .mac = { 0xEA, 0x11, 0x22, 0x33, 0x44, 0xEA }, .dhcp = NETINFO_DHCP };
+  // set MAC address before using DHCP
+  setSHAR(net_info.mac);
+  DHCP_init(DHCP_SOCKET, dhcp_buffer);
+
+  System_printf("Registering DHCP callbacks...\r\n");
+  System_flush();
+  reg_dhcp_cbfunc(Callback_IPAssigned, Callback_IPAssigned, Callback_IPConflict);
+
+  System_printf("Calling DHCP_run()...\r\n");
+  System_flush();
+  // actually should be called in a loop, e.g. by timer
+  uint32_t ctr = 10000;
+  while ((!ip_assigned) && (ctr > 0))
+  {
+    DHCP_run();
+    ctr--;
+  }
+  if (!ip_assigned)
+  {
+    System_printf("\r\nIP was not assigned :(\r\n");
+    System_flush();
+    return;
+  }
+
+  getIPfromDHCP(net_info.ip);
+  getGWfromDHCP(net_info.gw);
+  getSNfromDHCP(net_info.sn);
+  getDNSfromDHCP(net_info.dns);
+
+  System_printf("IP:  %d.%d.%d.%d\r\nGW:  %d.%d.%d.%d\r\nNet: %d.%d.%d.%d\r\nDNS: %d.%d.%d.%d\r\n",
+      net_info.ip[0], net_info.ip[1], net_info.ip[2], net_info.ip[3],
+      net_info.gw[0], net_info.gw[1], net_info.gw[2], net_info.gw[3],
+      net_info.sn[0], net_info.sn[1], net_info.sn[2], net_info.sn[3],
+      net_info.dns[0], net_info.dns[1], net_info.dns[2], net_info.dns[3]
+  );
+  System_flush();
+
+
+  System_printf("Calling wizchip_setnetinfo()...\r\n");
+  System_flush();
+  wizchip_setnetinfo(&net_info);
+
+  System_printf("Calling DNS_init()...\r\n");
+  System_flush();
+  DNS_init(DNS_SOCKET, dns_buffer);
+
+  uint8_t addr[4];
+  {
+    char domain_name[] = "eax.me";
+    System_printf("Resolving domain name \"%s\"...\r\n", domain_name);
+    System_flush();
+    int8_t res = DNS_run(net_info.dns, (uint8_t*) &domain_name, addr);
+    if (res != 1)
+    {
+      System_printf("DNS_run() failed, res = %d", res);
+      System_flush();
+      return;
+    }
+    System_printf("Result: %d.%d.%d.%d\r\n", addr[0], addr[1], addr[2], addr[3]);
+    System_flush();
+  }
+
+  System_flush();
+  Task_sleep(1000 * (1000 / Clock_tickPeriod));
 
   for(;;){
   Display_Net_Conf();
   System_flush();
-  Task_sleep(5000 * (1000 / Clock_tickPeriod));
+    Task_sleep(5000 * (1000 / Clock_tickPeriod));
   }
 
 
