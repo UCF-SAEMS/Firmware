@@ -114,7 +114,6 @@
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/zmac
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/zmac/f8w
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/ui
-            -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/common/cui
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/fh
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/high_level
@@ -200,19 +199,11 @@
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/boards/cc13x2_cc26x2/cc13x2_cc26x2.cmd" openOnCreation="false" excludeFromBuild="false" action="copy">
         </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/apps/light/zcl_samplelight.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application">
-        </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/apps/light/zcl_samplelight.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application">
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/apps/light/zcl_samplelight_data.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application">
         </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/apps/light/zcl_sample_app_def.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/ui">
-        </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/startup/main.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/StartUp">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/common/cui/cui.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/ui">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/common/cui/cui.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/ui">
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/startup/zstackstartup.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/StartUp">
         </file>
@@ -231,10 +222,6 @@
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/services/saddr/saddr.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/Services">
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/services/sdata/sdata.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/Services">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/ui/zcl_sampleapps_ui.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/ui">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/ui/zcl_sampleapps_ui.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/ui">
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/common/util/mac_util.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/util">
         </file>
