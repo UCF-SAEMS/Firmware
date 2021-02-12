@@ -51,10 +51,6 @@ extern "C"
  */
 #include "zcl.h"
 #include "nvintf.h"
-#ifndef CUI_DISABLE
-#include "cui.h"
-#endif
-
 
 // Added to include Touchlink Target functionality
 #if defined ( BDB_TL_INITIATOR ) || defined ( BDB_TL_TARGET )

@@ -70,7 +70,6 @@
             -DNVOCMP_NVPAGES=2
             -I${PROJECT_ROOT}/Application/StartUp
             -I${PROJECT_ROOT}/Application/Services
-            -I${PROJECT_ROOT}/Application/ui
             -I${PROJECT_ROOT}/Application/util
             -I${PROJECT_ROOT}/Application/ZStackApi
             -I${PROJECT_ROOT}/Common/gp
@@ -114,7 +113,6 @@
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/zmac
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/zmac/f8w
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/ui
-            -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/common/cui
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/fh
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/high_level
@@ -186,8 +184,6 @@
         <property name="isHybrid" value="true"/>
         <property name="configuroOptions" value=" --compileOptions &quot;${COMPILER_FLAGS} &quot;"/>
         <group id="zr_saems.SIMPLELINK_CC13X2_26X2_SDK.CC1352P_2_LAUNCHXL.zstack.TI"/>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/boards/CC1352P_2_LAUNCHXL/CC1352P_2_LAUNCHXL_fxns.c" openOnCreation="false" excludeFromBuild="false" action="copy">
-        </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/common/boards/mac_user_config.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Stack/Config">
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/common/boards/mac_user_config.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Stack/Config">
@@ -195,24 +191,6 @@
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/low_level/cc13xx/mac_settings.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Stack/MAC/LowLevel">
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/low_level/cc13xx/mac_settings.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Stack/MAC/LowLevel">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/rtos/app.cfg" openOnCreation="false" excludeFromBuild="false" action="copy">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/boards/cc13x2_cc26x2/cc13x2_cc26x2.cmd" openOnCreation="false" excludeFromBuild="false" action="copy">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/apps/light/zcl_samplelight.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/apps/light/zcl_samplelight.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/apps/light/zcl_samplelight_data.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/apps/light/zcl_sample_app_def.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/ui">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/startup/main.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/StartUp">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/common/cui/cui.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/ui">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/common/cui/cui.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/ui">
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/startup/zstackstartup.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/StartUp">
         </file>
@@ -231,10 +209,6 @@
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/services/saddr/saddr.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/Services">
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/services/sdata/sdata.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/Services">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/ui/zcl_sampleapps_ui.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/ui">
-        </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/ui/zcl_sampleapps_ui.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/ui">
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/ti154stack/common/util/mac_util.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Application/util">
         </file>
@@ -595,8 +569,6 @@
         <file path="zr_launchpad.syscfg" openOnCreation="false" excludeFromBuild="false" applicableConfigurations="CC1352P_2_LAUNCHXL">
         </file>
         <file path="zr_launchpad.syscfg" openOnCreation="false" excludeFromBuild="true" applicableConfigurations="SAEMS_PCB">
-        </file>
-        <file path="makefile.defs" openOnCreation="false" excludeFromBuild="false" action="copy">
         </file>
     </project>
 </projectSpec>

@@ -106,11 +106,6 @@
 #include <ti/drivers/apps/LED.h>
 #include <ti/drivers/PWM.h>
 
-#ifndef CUI_DISABLE
-#include "zcl_sampleapps_ui.h"
-#include "zcl_sample_app_def.h"
-#endif
-
 #include "ti_zstack_config.h"
 
 
