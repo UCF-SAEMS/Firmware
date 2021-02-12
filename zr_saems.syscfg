@@ -49,7 +49,6 @@ CCFG.xoscCapArrayDelta        = 0xC1;
 CCFG.enableBootloader         = true;
 CCFG.enableBootloaderBackdoor = true;
 CCFG.dioBootloaderBackdoor    = 15;
-CCFG.levelBootloaderBackdoor  = "Active low";
 CCFG.forceVddr                = true;
 CCFG.ccfgTemplate.$name       = "ti_devices_CCFGTemplate0";
 
