@@ -37,12 +37,6 @@ const SPI      = scripting.addModule("/ti/drivers/SPI", {}, false);
 const SPI1     = SPI.addInstance();
 const TRNG     = scripting.addModule("/ti/drivers/TRNG");
 const TRNG1    = TRNG.addInstance();
-const Button   = scripting.addModule("/ti/drivers/apps/Button");
-const Button1  = Button.addInstance();
-const Button2  = Button.addInstance();
-const LED      = scripting.addModule("/ti/drivers/apps/LED");
-const LED1     = LED.addInstance();
-const LED2     = LED.addInstance();
 const zstack   = scripting.addModule("/ti/zstack/zstack");
 
 /**
@@ -115,28 +109,6 @@ scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad SP
 
 TRNG1.$name = "CONFIG_TRNG_0";
 
-Button1.$name                     = "CONFIG_BTN_LEFT";
-Button1.$hardware                 = system.deviceData.board.components["BTN-1"];
-Button1.gpioPin.$name             = "CONFIG_GPIO_BTN1";
-Button1.gpioPin.pinInstance.$name = "CONFIG_PIN_BTN1";
-
-Button2.$name                     = "CONFIG_BTN_RIGHT";
-Button2.$hardware                 = system.deviceData.board.components["BTN-2"];
-Button2.gpioPin.$name             = "CONFIG_GPIO_BTN2";
-Button2.gpioPin.pinInstance.$name = "CONFIG_PIN_BTN2";
-
-LED1.$name                                   = "CONFIG_LED_RED";
-LED1.$hardware                               = system.deviceData.board.components.LED_RED;
-LED1.dimmable                                = true;
-LED1.pwmPin.$name                            = "CONFIG_PWM_RED";
-LED1.pwmPin.timerObject.$name                = "CONFIG_GPTIMER_0";
-LED1.pwmPin.timerObject.pwmPinInstance.$name = "CONFIG_PIN_RLED";
-
-LED2.$name                     = "CONFIG_LED_GREEN";
-LED2.$hardware                 = system.deviceData.board.components.LED_GREEN;
-LED2.gpioPin.$name             = "CONFIG_GPIO_GLED";
-LED2.gpioPin.pinInstance.$name = "CONFIG_PIN_GLED";
-
 zstack.deviceType                            = "zr";
 zstack.deviceTypeReadOnly                    = true;
 zstack.touchlink.$name                       = "ti_zstack_touchlink_zstack_touchlink0";
@@ -162,8 +134,3 @@ I2C1.i2c.$suggestSolution                             = "I2C0";
 SPI1.spi.$suggestSolution                             = "SSI0";
 SPI1.spi.dmaRxChannel.$suggestSolution                = "DMA_CH3";
 SPI1.spi.dmaTxChannel.$suggestSolution                = "DMA_CH4";
-Button1.gpioPin.gpioPin.$suggestSolution              = "boosterpack.13";
-Button2.gpioPin.gpioPin.$suggestSolution              = "boosterpack.8";
-LED1.pwmPin.timerObject.timer.$suggestSolution        = "GPTM0";
-LED1.pwmPin.timerObject.timer.pwmPin.$suggestSolution = "boosterpack.39";
-LED2.gpioPin.gpioPin.$suggestSolution                 = "boosterpack.40";
