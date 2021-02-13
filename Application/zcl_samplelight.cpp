@@ -682,6 +682,21 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   // 1K seems to be enough for this buffer as well
   uint8_t dns_buffer[1024];
 
+  uint64_t eui64Address = (*((volatile uint64_t*) (FCFG1_BASE + FCFG1_O_MAC_15_4_0)));
+  uint8_t macAddress[sizeof(eui64Address)] = { 0 };
+
+  // Per TI, the first 2 bytes are unique (although it looks like 3 are, see OUI)
+  // This means that 64b-16b = 48b, exactly what we need for an unregistered (fully random) eui48/mac address per device
+  // https://e2e.ti.com/support/wireless-connectivity/sub-1-ghz/f/156/t/586103?RTOS-LAUNCHXL-CC1310-Obtaining-a-48-bit-unique-ID-for-each-device
+  memcpy(macAddress, &eui64Address, sizeof(eui64Address));
+
+  System_printf("Mac Addr: ");
+  for (int i = 0; i < sizeof(macAddress); i++)
+  {
+    System_printf("%02x:", macAddress[i]);
+  }
+  System_printf(" \r\n");
+
   // This is a mock web server handler.
   char requestedURL[] = "index.html";
 
