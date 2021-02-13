@@ -540,6 +540,8 @@ DMMPolicy_StackRole DMMPolicy_StackRole_Zigbee =
 #include "lib/W5500/ioLibrary_Driver-master/Ethernet/W5500/w5500.h"
 #include "lib/W5500/ioLibrary_Driver-master/Internet/DHCP/dhcp.h"
 #include "lib/W5500/ioLibrary_Driver-master/Internet/DNS/dns.h"
+#include "Web/webassets.h"
+
      volatile bool ip_assigned = false;
 #define DHCP_SOCKET     0
 #define DNS_SOCKET      1
@@ -679,6 +681,36 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   uint8_t dhcp_buffer[1024];
   // 1K seems to be enough for this buffer as well
   uint8_t dns_buffer[1024];
+
+  // This is a mock web server handler.
+  char requestedURL[] = "index.html";
+
+  web_FileAssetItem_Type match = ASSET_ERROR;
+  for (int i = 0; i < NWEBASSETS; i++)
+  {
+    if (strncmp(requestedURL, webAssets[i].name, 20) == 0)
+    {
+      // This was a match
+      match = (web_FileAssetItem_Type) i;
+    }
+  }
+
+  if (match != ASSET_ERROR)
+  {
+    // We need to send this file
+    web_FileAssetItem_t *item = &webAssets[match];
+
+    System_printf("Sending: <%s> \r\n", item->name);
+
+    // can not guarentee that there is going to be a \0 at the end of the data string
+    // so a memcpy or similar should be used. TODO DMA transfer to W5500
+    for (int i = 0; i < item->size; i++)
+    {
+      System_printf("%c", item->data[i]);
+    }
+    System_printf("\r\n------------- \r\n");
+  }
+  System_flush();
 
   wiz_NetInfo gWIZNETINFO = {
       { 0x00, 0x08, 0xDC, 0x44, 0x55, 0x66 },             // Mac address

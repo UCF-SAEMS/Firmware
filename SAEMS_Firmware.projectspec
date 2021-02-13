@@ -174,6 +174,8 @@
         "
         postBuildStep="
             ${CG_TOOL_HEX} -order MS --memwidth=8 --romwidth=8 --intel -o ${ProjName}.hex ${ProjName};
+            ${CG_TOOL_ROOT}/bin/armsize.exe --format=sysv --common  ${ProjName}.out;
+            ${CG_TOOL_ROOT}/bin/armsize.exe --format=berkeley --common  ${ProjName}.out;
         "
         enableSysConfigTool="true"
         sysConfigBuildOptions="--product ${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/.metadata/product.json --compiler ccs"

@@ -69,6 +69,9 @@
 /* The starting address of the application.  Normally the interrupt vectors  */
 /* must be located at the beginning of the application.                      */
 
+/* Supress ABI difference when including binary files */
+--diag_suppress=16006
+
 #define FLASH_BASE              0x00000000
 #define FLASH_SIZE              0x52000
 #define FLASH_NV_BASE           0x52000
@@ -107,6 +110,15 @@ SECTIONS
     } > FLASH_LAST
 */
     .text           :   > FLASH
+
+
+	/* placing my named section anywhere */
+	.myBinarySection  :
+	{
+        __MY_SECTION_START = .;  /* create symbol for start of section */
+         ./Web/webblob_index.o
+        __MY_SECTION_END = .; /* create symbol for end of section */
+	} > FLASH
 
     config_const { mac_user_config.obj(.const) } > FLASH
 
