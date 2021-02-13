@@ -68,10 +68,14 @@
             -DZCL_STANDALONE
             -DMAX_DEVICE_TABLE_ENTRIES=50
             -DNVOCMP_NVPAGES=2
+            -I${PROJECT_ROOT}/Application
             -I${PROJECT_ROOT}/Application/StartUp
             -I${PROJECT_ROOT}/Application/Services
             -I${PROJECT_ROOT}/Application/util
             -I${PROJECT_ROOT}/Application/ZStackApi
+            -I${PROJECT_ROOT}/Application/lib/W5500
+            -I${PROJECT_ROOT}/Application/lib/W5500/ioLibrary_Driver-master/Internet
+            -I${PROJECT_ROOT}/Application/lib/W5500/ioLibrary_Driver-master/Ethernet
             -I${PROJECT_ROOT}/Common/gp
             -I${PROJECT_ROOT}/Common/touchlink
             -I${PROJECT_ROOT}/Stack/af
@@ -134,7 +138,6 @@
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/devices/cc13x2_cc26x2/inc
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/devices/cc13x2_cc26x2/driverlib
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/common/time
-            -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/apps/light
             --cmd_file=${PROJECT_ROOT}/Stack/Config/f8wrouter.opts
             -I${PROJECT_ROOT}/Common/zcl
             -DCOMBO_MAC

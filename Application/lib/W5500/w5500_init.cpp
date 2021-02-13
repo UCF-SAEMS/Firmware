@@ -17,7 +17,7 @@ static uint32_t i;
 static bool transferOK;
 static int32_t status;
 
-#include "zcl_samplelight.h"
+#include "Application/zcl_samplelight.h"
 
 #include "Application/lib/MCP23017/MCP23017.h"
 #include "Application/myconfig.h"
