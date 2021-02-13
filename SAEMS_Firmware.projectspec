@@ -171,6 +171,7 @@
              -llibc.a
         "
         preBuildStep="
+            ${CG_TOOL_ROOT}/bin/armobjcopy.exe --input-target=binary -B arm --output-target=elf32-littlearm  --rename-section .data=alloc,load,readonly,data,contents ../Web/index.html webblob_index.o;
         "
         postBuildStep="
             ${CG_TOOL_HEX} -order MS --memwidth=8 --romwidth=8 --intel -o ${ProjName}.hex ${ProjName};

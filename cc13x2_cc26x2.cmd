@@ -116,7 +116,7 @@ SECTIONS
 	.myBinarySection  :
 	{
         __MY_SECTION_START = .;  /* create symbol for start of section */
-         ./Web/webblob_index.o
+         webblob_index.o
         __MY_SECTION_END = .; /* create symbol for end of section */
 	} > FLASH
 
