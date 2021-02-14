@@ -81,6 +81,11 @@
  */
 #define CUI_DISABLE
 
+#include <stdint.h>
+#include <stddef.h>
+#include <unistd.h>
+#include <stdio.h>
+
 #include "rom_jt_154.h"
 #include "zcomdef.h"
 #include "zcl.h"
@@ -104,6 +109,14 @@
 
 #include <ti/drivers/apps/Button.h>
 #include <ti/drivers/apps/LED.h>
+
+// *********************** SAEMS-Specific Includes ***********************
+#include "zcl_ms.h"               // Sensor Clusters
+#include "zcl_lighting.h"         // Color Control Cluster
+#include <ti/drivers/GPIO.h>      // GPIO (control, init) for sensor
+#include <ti/drivers/I2C.h>       // I2C for measuring and polling
+#include <ti/drivers/PWM.h>       // PWM for LED Control (?)
+// ***********************************************************************
 
 #include "ti_zstack_config.h"
 
@@ -160,8 +173,12 @@ extern "C" {
 #include "lib/BME280/bme280_if.h"
 
 /*********************************************************************
- * MACROS
- */
+ * MACROS                                                           */
+// ======================================================================
+// ---------------------- SAEMS-SPECIFIED DEFINES -----------------------
+// ======================================================================
+#define ZCL_DATA_UPDATE
+//#define ZCL_MEASURE_TESTING
 
 /*********************************************************************
  * TYPEDEFS
@@ -215,6 +232,9 @@ static Clock_Struct LevelControlClkStruct;
 static Clock_Handle DiscoveryClkHandle;
 static Clock_Struct DiscoveryClkStruct;
 
+static Clock_Handle SensorDataClkHandle;
+static Clock_Struct SensorDataClkStruct;
+
 #if defined(USE_DMM) && defined(BLE_START)
 static Clock_Struct SyncAttrClkStruct;
 #endif // defined(USE_DMM) && defined(BLE_START)
@@ -259,6 +279,13 @@ static uint32_t gSampleLightInfoLine;
 static void tl_BDBFindingBindingCb(void);
 #endif // defined ( BDB_TL_TARGET ) || defined (BDB_TL_INITIATOR)
 
+// ==================================================================================================================
+// ------------------------------------ SAEMS-SPECIFIED VARIABLES AND STRUCTURES ------------------------------------
+// ==================================================================================================================
+int measure_Testing = 0;
+
+// ==================================================================================================================
+// ==================================================================================================================
 static uint8_t endPointDiscovered = 0x00;
 
 //Discovery in progress state. This last 3 seconds to get the responses.
@@ -378,13 +405,24 @@ static DMMPolicy_AppCbs_t dmmPolicyAppCBs =
 };
 #endif
 
+// ===============================================================================================================
+// ------------------------------------------ SAEMS-SPECIFIED PROTOTYPES -----------------------------------------
+// ===============================================================================================================
+#ifdef ZCL_LIGHTING
+ZStatus_t zclSAEMS_ColorControlMoveToHueCB( zclCCMoveToHue_t *pCmd );
+ZStatus_t zclSAEMS_ColorControlMoveToSaturationCB( zclCCMoveToSaturation_t *pCmd );
+ZStatus_t zclSAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturation_t *pCmd );
+#endif // ZCL_LIGHTING
+
+static void SAEMS_SensorsCallback(UArg a0);
+static void getSensorData();
+// ===============================================================================================================
+// ===============================================================================================================
+
+
 /*********************************************************************
  * CONSTANTS
  */
-
-
-
-
 
 #define LEVEL_CHANGED_BY_LEVEL_CMD  0
 #define LEVEL_CHANGED_BY_ON_CMD     1
@@ -439,6 +477,31 @@ static zclGeneral_AppCallbacks_t zclSampleLight_CmdCallbacks =
   NULL                                   // RSSI Location Response command
 };
 
+// ======================================
+// >>> ZCL Lighting Command Callbacks <<<
+// ======================================
+static zclLighting_AppCallbacks_t zclSAEMS_CmdCallbacks =
+{
+  zclSAEMS_ColorControlMoveToHueCB,                         // Color Control Move to Hue (0x00)
+  NULL,                                                     // Color Control Move Hue (0x01)
+  NULL,                                                     // Color Control Step Hue (0x02)
+  zclSAEMS_ColorControlMoveToSaturationCB,                  // Color Control Move to Saturation (0x03)
+  NULL,                                                     // Color Control Move Saturation (0x04)
+  NULL,                                                     // Color Control Step Saturation (0x05)
+  zclSAEMS_ColorControlMoveToHueAndSaturationCB,            // Color Control Move to Hue and Saturation (0x06)
+  NULL,                                                     // Color Control Move to Color
+  NULL,                                                     // Color Control Move Color
+  NULL,                                                     // Color Control Step Color
+  NULL,                                                     // Color Control Move to Color Temperature
+  NULL,                                                     // Color Control Enhanced Move to Hue
+  NULL,                                                     // Color Control Enhanced Move Hue
+  NULL,                                                     // Color Control Enhanced Step Hue
+  NULL,                                                     // Color Control Enhanced Move to Hue and Saturation
+  NULL,                                                     // Color Control Color Loop Set
+  NULL,                                                     // Color Control Stop Move Step
+  NULL,                                                     // Color Control Move Color Temperature
+  NULL                                                      // Color Control Step Color Temperature
+};
 
 #if defined (ENABLE_GREENPOWER_COMBO_BASIC)
 GpSink_AppCallbacks_t zclSampleLight_GpSink_AppCallbacks =
@@ -521,6 +584,138 @@ DMMPolicy_StackRole DMMPolicy_StackRole_Zigbee =
 #endif
 
 #endif // defined(USE_DMM) && defined(BLE_START)
+
+#ifdef ZCL_LIGHTING
+// =================================================================================================================
+// ------------------------------------------- SAEMS-SPECIFIED FUNCTIONS -------------------------------------------
+// =================================================================================================================
+/******************************************************************************************
+ * @fn        zclSAEMS_ColorControlMoveToHueCB
+ *
+ * @brief     Callback function to adjust the Hue of the LED Board to a specified value
+ *
+ * @param     pCmd - ZigBee command parameters
+ *
+ * @return    none
+ */
+ZStatus_t zclSAEMS_ColorControlMoveToHueCB( zclCCMoveToHue_t *pCmd ){
+  // Get the hue value from the "Move to Hue" command  and save it to the hue variable
+  uint8_t newHue = pCmd->hue;
+  SAEMS_ColorControl_CurrentHue = newHue;
+  // Pass the 'new hue' to the LED Board Driver Fucntion
+  // ....
+
+    return ZSuccess;
+}
+
+/******************************************************************************************
+ * @fn        zclSAEMS_ColorControlMoveToSaturationCB
+ *
+ * @brief     Callback function to adjust the Saturation of the LED Board to a specified value
+ *
+ * @param     pCmd - ZigBee command parameters
+ *
+ * @return    none
+ */
+ZStatus_t zclSAEMS_ColorControlMoveToSaturationCB( zclCCMoveToSaturation_t *pCmd ){
+  // Get the saturation value from the "Move to Saturation" command and save it to the saturation variable
+  uint8_t newSaturation = pCmd->saturation;
+  SAEMS_ColorControl_CurrentSaturation = newSaturation;
+  // Pass the 'new saturation' to the LED Board Driver Function
+  // ...
+
+    return ZSuccess;
+}
+
+/******************************************************************************************
+ * @fn        zclSAEMS_ColorControlMoveToHueAndSaturationCB
+ *
+ * @brief     Callback function to adjust the Hue and Saturation of the LED Board to a specified value
+ *
+ * @param     pCmd - ZigBee command parameters
+ *
+ * @return    none
+ */
+ZStatus_t zclSAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturation_t *pCmd ){
+  // Get the hue and saturation calues from the "Move to Hue and Saturation" command and save it to the
+  // hue and saturation variables
+  uint8_t newHue = pCmd->hue;
+  uint8_t newSaturation = pCmd->saturation;
+  SAEMS_ColorControl_CurrentHue = newHue;
+  SAEMS_ColorControl_CurrentSaturation = newSaturation;
+
+  // Pass the 'new hue and saturation' to the LED Board Driver Function
+  // ...
+    printf("Thread entered 'Move To Hue and Saturation' callback function from receiving command: %d %d", newHue, newSaturation);
+    return ZSuccess;
+}
+#endif // ZCL_LIGHTING
+
+/*************************************************************************
+ * @fn      SAEMS_SensorsCallback
+ *
+ * @brief   Timeout handler function for getting data from the sensors and passing to the Hub
+ *
+ * @param   a0 - ignored
+ *
+ * @return  none
+ */
+static void SAEMS_SensorsCallback(UArg a0){
+
+  (void)a0;     // Parameter is not used
+  printf("The Sensor Data Transfer Callback has been entered\n");
+
+  appServiceTaskEvents |= SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT;
+
+  // Wake up the application thread when it waits for the clock event
+  Semaphore_post(appSemHandle);
+}
+
+/*************************************************************************
+ * @fn      getSensorData
+ *
+ * @brief   Gets data from the sensors through I2C/Digital
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void getSensorData(){
+    printf("Gathering Sensor Data...");
+    // Using driver functions, get data from I2C lines and store in the new struct
+    // TO-DO:
+
+    // The following is sample data...
+    #ifdef ZCL_MEASURE_TESTING
+    if(measure_Testing == 0){
+      sensorDataNew.temperature = 1000;
+      sensorDataNew.humidity = 1000;
+      sensorDataNew.pressure = 1000;
+      sensorDataNew.carbonmonoxide = 1000;
+      sensorDataNew.carbondioxide = 1000;
+      sensorDataNew.smoke = 1000;
+      sensorDataNew.voc = 1000;
+      sensorDataNew.particulates = 1000;
+      sensorDataNew.occupancy = 0;
+
+      measure_Testing = 1;
+    } else{
+        sensorDataNew.temperature = 1250;
+        sensorDataNew.humidity = 1250;
+        sensorDataNew.pressure = 1250;
+        sensorDataNew.carbonmonoxide = 1250;
+        sensorDataNew.carbondioxide = 1250;
+        sensorDataNew.smoke = 1250;
+        sensorDataNew.voc = 1250;
+        sensorDataNew.particulates = 1250;
+        sensorDataNew.occupancy = 1;
+
+        measure_Testing = 0;
+    }
+    #endif
+}
+// ================================================================================================================
+// ================================================================================================================
 
 /*******************************************************************************
  * @fn          sampleApp_task
@@ -735,6 +930,11 @@ static void zclSampleLight_Init( void )
   // Register the ZCL General Cluster Library callback functions
   zclGeneral_RegisterCmdCallbacks( SAMPLELIGHT_ENDPOINT, &zclSampleLight_CmdCallbacks );
 
+  #ifdef ZCL_LIGHTING
+  // >>>> Register the ZCL Lighting Cluster Library callback functions <<<<
+  zclLighting_RegisterCmdCallbacks( SAMPLELIGHT_ENDPOINT, &zclSAEMS_CmdCallbacks );
+  #endif // ZCL_LIGHTING
+
   // Register the application's attribute list and reset to default values
   zclSampleLight_ResetAttributesToDefaultValues();
   zcl_registerAttrList( SAMPLELIGHT_ENDPOINT, zclSampleLight_NumAttributes, zclSampleLight_Attrs );
@@ -784,7 +984,6 @@ static void zclSampleLight_Init( void )
 
   Zstackapi_bdbRepAddAttrCfgRecordDefaultToListReq(appServiceTaskId,&Req);
 #endif
-
 #endif
 
 
@@ -968,6 +1167,16 @@ static void zclSampleLight_initializeClocks(void)
     DISCOVERY_IN_PROGRESS_TIMEOUT,
     0, false, 0);
 
+    // ==============================================================
+    // =================== I2C Data Transfer Clock ==================
+    // ==============================================================
+    SensorDataClkHandle = UtilTimer_construct(
+    &SensorDataClkStruct,
+    SAEMS_SensorsCallback,
+    SENSOR_UPDATE_TIMEOUT,
+    0, false, 0);
+    // ==============================================================
+
 }
 
 #if ZG_BUILD_ENDDEVICE_TYPE
@@ -1023,6 +1232,12 @@ static void zclSampleLight_processDiscoveryTimeoutCallback(UArg a0)
  */
 static void zclSampleLight_process_loop(void)
 {
+    // Start the I2C Data Transfer Clock
+    printf("Sensor Data Transfer Clock has been started ... \n");
+    UtilTimer_setTimeout(SensorDataClkHandle, SENSOR_UPDATE_TIMEOUT);
+    UtilTimer_start(&SensorDataClkStruct);
+
+    printf("Now entering the process loop ... \n");
     /* Forever loop */
     for(;;)
     {
@@ -1057,6 +1272,16 @@ static void zclSampleLight_process_loop(void)
             //Process the events that the UI may have
             zclsampleApp_ui_event_loop();
 #endif
+            if( appServiceTaskEvents & SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT )
+            {
+              printf("Entering the Data Transfer functions\n");
+              getSensorData();
+              updateSensorData();
+                  // Reset and restart the timer
+                  UtilTimer_setTimeout(SensorDataClkHandle, SENSOR_UPDATE_TIMEOUT);
+                  UtilTimer_start(&SensorDataClkStruct);
+              appServiceTaskEvents &= ~SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT;
+            }
 
             if ( appServiceTaskEvents & SAMPLEAPP_DISCOVERY_TIMEOUT_EVT )
             {
