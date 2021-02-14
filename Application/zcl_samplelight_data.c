@@ -86,9 +86,6 @@
 // Used to update sensor structs
 #define ZCL_DATA_UPDATE
 
-#define ZCL_LIGHTING
-#define ZCL_MS
-
 // >>>> This is where the the CONSTANTS for the required/optional values for the sensors will be added <<<<<
 //  Temperature Sensor Cluster
 #define SAEMS_TEMPERATURESENSOR_MIN_MEASURED_VALUE  0000
@@ -329,6 +326,7 @@ CONST zclCommandRec_t zclSampleLight_Cmds[] =
     COMMAND_COLOR_CONTROL_STOP_MOVE_STEP,
     CMD_DIR_SERVER_RECEIVED
   }
+#endif //ZCL_LIGHTING
 // ----------------------------------------------------------------
 };
 

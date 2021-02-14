@@ -283,7 +283,18 @@ static void tl_BDBFindingBindingCb(void);
 // ------------------------------------ SAEMS-SPECIFIED VARIABLES AND STRUCTURES ------------------------------------
 // ==================================================================================================================
 int measure_Testing = 0;
+static uint16_t zclSampleLight_BdbCommissioningModes;
 
+Display_Handle display;
+
+I2C_Handle i2c;
+I2C_Params i2cParams;
+I2C_Transaction i2cTransaction;
+
+struct bme280_data bme_data;
+struct bme280_dev bme_dev;
+
+LEDBoard ledboard = LEDBoard(CONFIG_SPI_LEDBOARD);
 // ==================================================================================================================
 // ==================================================================================================================
 static uint8_t endPointDiscovered = 0x00;
@@ -684,6 +695,12 @@ static void getSensorData(){
     printf("Gathering Sensor Data...");
     // Using driver functions, get data from I2C lines and store in the new struct
     // TO-DO:
+    
+    bme280_if_get_all_sensor_data(&bme_data, &bme_dev);
+
+    sensorDataNew.temperature = (int16_t)bme_data.temperature;
+    sensorDataNew.pressure =    (int16_t)bme_data.pressure;
+    sensorDataNew.humidity =    (int16_t)bme_data.humidity;
 
     // The following is sample data...
     #ifdef ZCL_MEASURE_TESTING
@@ -741,7 +758,6 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   SPI_init();
   I2C_init();
 
-  Display_Handle display;
   /* Open the display for output */
   display = Display_open(Display_Type_UART, NULL);
   if (display == NULL)
@@ -753,42 +769,14 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   Display_printf(display, 0, 0, "-- SAEMS Startup --");
 
-  I2C_Handle i2c;
-  I2C_Params i2cParams;
-  I2C_Transaction i2cTransaction;
   I2C_Params_init(&i2cParams);
   i2cParams.bitRate = I2C_100kHz;
   i2c = I2C_open(CONFIG_I2C_0, &i2cParams);
-
-  struct bme280_data bme_data;
-  struct bme280_dev bme_dev;
 
   bme_dev = { 0 };
   bme_data = { 0 };
 
   bme280_if_init(&bme_dev, &i2c);
-  char buffer[500];
-
-  for (;;)
-  {
-    bme280_if_get_all_sensor_data(&bme_data, &bme_dev);
-
-    float temp, press, hum;
-
-    temp = 0.01f * bme_data.temperature;
-    press = 0.01f * bme_data.pressure;
-    hum = 1.0f / 1024.0f * bme_data.humidity;
-
-    buffer[0] = '\0';
-    sprintf(buffer, "BME280: %6.2f deg C, %7.2f hPa, %6.2f %%RH\r\n", temp, press, hum);
-    Display_printf(display, 1, 0, "%s", buffer);
-
-    buffer[0] = '\0';
-    sprintf(buffer, "BME280: %6u deg C, %7u hPa, %6u %%RH\r\n", bme_data.temperature, bme_data.pressure, bme_data.humidity);
-    Display_printf(display, 2, 0, "%s", buffer);
-
-    Task_sleep(2000 * (1000 / Clock_tickPeriod));
-  }
 
   // Set up the io expander
   MCP23017 mcp = MCP23017(i2c, 0b0100001);
@@ -802,17 +790,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   led.set(RGB_States::RED | RGB_States::GREEN);
 
-  LEDBoard ledboard = LEDBoard(CONFIG_SPI_LEDBOARD);
   ledboard.init();
-
-  for (;;)
-  {
-    for (float br = 0; br < 360; br += .5)
-    {
-      ledboard.hsi(br, 1, 0.8);
-      Task_sleep(50 * (1000 / Clock_tickPeriod));
-    }
-  }
 
   // No return from task process
   zclSampleLight_process_loop();
