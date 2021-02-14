@@ -41,6 +41,8 @@
 /*********************************************************************
  * INCLUDES
  */
+#include <stdio.h>
+#include <stdlib.h>
 #include "zcomdef.h"
 #include "zcl.h"
 #include "zcl_general.h"
@@ -54,6 +56,8 @@
 #include "zcl_appliance_control.h"
 #include "zcl_appliance_statistics.h"
 #include "zcl_hvac.h"
+#include "zcl_ms.h"
+#include "zcl_lighting.h"
 
 #include "zcl_samplelight.h"
 #ifdef BDB_REPORTING
@@ -78,6 +82,48 @@
 
 #define DEFAULT_ON_OFF_STATE LIGHT_OFF
 #define DEFAULT_LEVEL ATTR_LEVEL_MAX_LEVEL
+
+// Used to update sensor structs
+#define ZCL_DATA_UPDATE
+
+#define ZCL_LIGHTING
+#define ZCL_MS
+
+// >>>> This is where the the CONSTANTS for the required/optional values for the sensors will be added <<<<<
+//  Temperature Sensor Cluster
+#define SAEMS_TEMPERATURESENSOR_MIN_MEASURED_VALUE  0000
+//  Humididty Sensor Cluster
+#define SAEMS_HUMIDITYSENSOR_MIN_MEASURED_VALUE 0000
+//  Pressure Sensor Cluster
+#define SAEMS_PRESSURESENSOR_MIN_MEASURED_VALUE   0000
+// Motion Cluster
+#define SAEMS_MOTIONSENSOR_OCCUPANCY 0000
+// Carbon Monoxide Cluster
+#define SAEMS_CARBONMONOXIDE_MIN_MEASURED_VALUE 0000
+// Carbon Dioxide Cluster
+#define SAEMS_CARBONDIOXIDE_MIN_MEASURED_VALUE 0000
+// Smoke
+#define SAEMS_SMOKE_MIN_MEASURED_VALUE 0000
+// VOC
+#define SAEMS_VOC_MIN_MEASURED_VALUE 0000
+// Particulates
+#define SAEMS_PARTICULATES_MIN_MEASURED_VALUE 0000
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+// Color Control Cluster
+#define SAEMS_COLORCONTROL_CURRENT_HUE 0x00
+#define SAEMS_COLORCONTROL_CURRENT_SATURATION 0x00
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+// Thresholds to update the sensor data struct
+#define TEMPERATURE_UPDATE_THRESHOLD 0500
+#define HUMIDITY_UPDATE_THRESHOLD 0500
+#define PRESSURE_UPDATE_THRESHOLD 0500
+#define OCCUPANCY_UPDATE_THRESHOLD 0500
+#define CARBONMONOXIDE_UPDATE_THRESHOLD 0500
+#define CARBONDIOXIDE_UPDATE_THRESHOLD 0500
+#define SMOKE_UPDATE_THRESHOLD 0500
+#define VOC_UPDATE_THRESHOLD 0001
+#define PARTICULATES_UPDATE_THRESHOLD 0001
+
 
 /*********************************************************************
  * TYPEDEFS
@@ -133,17 +179,51 @@ uint16_t zclSampleLight_LevelOffTransitionTime;
 uint8_t  zclSampleLight_LevelDefaultMoveRate;
 #endif
 
+#ifdef ZCL_LIGHTING
+// >>>>>>>>>>>>>>>>>> DEFAULT VALUES AND VARIABLES FOR COLOR CONTROL CLUSTER <<<<<<<<<<<<<<<<<<<<<<
+// Color Control Cluster
+uint8_t SAEMS_ColorControl_CurrentHue = SAEMS_COLORCONTROL_CURRENT_HUE;
+uint8_t SAEMS_ColorControl_CurrentSaturation = SAEMS_COLORCONTROL_CURRENT_SATURATION;
+#endif  // ZCL_LIGHTING
 
+#ifdef ZCL_MS
+// >>>>>>>>>>>>>>>> DEFAULT VALUES AND VARIABLES FOR EACH SENSOR CLUSTER (to be used with commands/attributes) <<<<<<<<<<<<<<<<<<<<
+// Temperature Sensor Variable
+int16_t zclSAEMS_Temperature_MeasuredValue = SAEMS_TEMPERATURESENSOR_MIN_MEASURED_VALUE;
+// Humididty Sensor Variable
+int16_t zclSAEMS_Humidity_MesauredValue = SAEMS_HUMIDITYSENSOR_MIN_MEASURED_VALUE;
+// Pressure Sensor Variable
+int16_t zclSAEMS_Pressure_MeasuredValue = SAEMS_PRESSURESENSOR_MIN_MEASURED_VALUE;
+// Motion Sensor Variable
+int16_t zclSAEMS_Motion_Occupancy = SAEMS_MOTIONSENSOR_OCCUPANCY;
+// Carbon Monoxide Sensor Variable
+int16_t zclSAEMS_CarbonMonoxide_MeasuredValue = SAEMS_CARBONMONOXIDE_MIN_MEASURED_VALUE;
+// Carbon Dioxide Sensor Variable
+int16_t zclSAEMS_CarbonDioxide_MeasuredValue = SAEMS_CARBONDIOXIDE_MIN_MEASURED_VALUE;
+// Smoke Sensor Variable
+int16_t zclSAEMS_Smoke_MeasuredValue = SAEMS_SMOKE_MIN_MEASURED_VALUE;
+// VOC Sensor Variable
+int16_t zclSAEMS_VOC_MeasuredValue = SAEMS_VOC_MIN_MEASURED_VALUE;
+// Particulates Sensor Variable
+int16_t zclSAEMS_Particulates_MeasuredValue = SAEMS_PARTICULATES_MIN_MEASURED_VALUE;
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#endif // ZCL_MS
+
+// Initialize data structs
+SAEMS_SensorData sensorDataCurrent = {0};
+SAEMS_SensorData sensorDataNew = {0};
 
 uint8_t  zclSampleLight_ScenesCurrentScene = 0;
 uint16_t zclSampleLight_ScenesCurrentGroup = 0;
 uint8_t  zclSampleLight_ScenesValid = 0;
 uint8_t  zclSampleLight_ScenesNameSupport = 0;
 
+// >>>>>>>>>>>>>>>>>>>>>>> IF MORE COMMANDS ARE NEEDED, SHOULD BE ADDED HERE <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 #if ZCL_DISCOVER
 CONST zclCommandRec_t zclSampleLight_Cmds[] =
 {
+// >>>>>>>>>>>>>>> ON/OFF CLUSTER COMMANDS <<<<<<<<<<<<<<<
   {
     ZCL_CLUSTER_ID_GENERAL_BASIC,
     COMMAND_BASIC_RESET_TO_FACTORY_DEFAULTS,
@@ -164,6 +244,7 @@ CONST zclCommandRec_t zclSampleLight_Cmds[] =
     COMMAND_ON_OFF_TOGGLE,
     CMD_DIR_SERVER_RECEIVED
   },
+// >>>>>>>>>>>>>>> LEVEL CONTROL CLUSTER COMMANDS (SLIDER) <<<<<<<<<<<<<<<
 #ifdef ZCL_LEVEL_CONTROL
   ,{
     ZCL_CLUSTER_ID_GENERAL_LEVEL_CONTROL,
@@ -204,8 +285,51 @@ CONST zclCommandRec_t zclSampleLight_Cmds[] =
     ZCL_CLUSTER_ID_GENERAL_LEVEL_CONTROL,
     COMMAND_LEVEL_STOP_WITH_ON_OFF,
     CMD_DIR_SERVER_RECEIVED
-  }
+  },
 #endif // ZCL_LEVEL_CONTROL
+#ifdef ZCL_LIGHTING
+// >>>>>>>>>>>>>>> COLOR CONTROL CLUSTER COMMANDS <<<<<<<<<<<<<<<
+  {
+    ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL,
+    COMMAND_COLOR_CONTROL_MOVE_TO_HUE,
+    CMD_DIR_SERVER_RECEIVED
+  },
+  {
+    ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL,
+    COMMAND_COLOR_CONTROL_MOVE_HUE,
+    CMD_DIR_SERVER_RECEIVED
+  },
+  {
+    ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL,
+    COMMAND_COLOR_CONTROL_STEP_HUE,
+    CMD_DIR_SERVER_RECEIVED
+  },
+  {
+    ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL,
+    COMMAND_COLOR_CONTROL_MOVE_TO_SATURATION,
+    CMD_DIR_SERVER_RECEIVED
+  },
+  {
+    ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL,
+    COMMAND_COLOR_CONTROL_MOVE_SATURATION,
+    CMD_DIR_SERVER_RECEIVED
+  },
+  {
+    ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL,
+    COMMAND_COLOR_CONTROL_STEP_SATURATION,
+    CMD_DIR_SERVER_RECEIVED
+  },
+  {
+    ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL,
+    COMMAND_COLOR_CONTROL_MOVE_TO_HUE_AND_SATURATION,
+    CMD_DIR_SERVER_RECEIVED
+  },
+  {
+    ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL,
+    COMMAND_COLOR_CONTROL_STOP_MOVE_STEP,
+    CMD_DIR_SERVER_RECEIVED
+  }
+// ----------------------------------------------------------------
 };
 
 CONST uint8_t zclCmdsArraySize = ( sizeof(zclSampleLight_Cmds) / sizeof(zclSampleLight_Cmds[0]) );
