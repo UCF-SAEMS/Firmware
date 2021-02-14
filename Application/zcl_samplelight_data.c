@@ -591,11 +591,126 @@ CONST zclAttrRec_t zclSampleLight_Attrs[] =
       (void *)&zclSampleLight_scenes_clusterRevision
     }
   },
-
-
-
-
-
+//--------------------------------------------------------------
+// ============================================================================================================
+// =========================================== SAEMS SENSOR CLUSTERS ==========================================
+// ============================================================================================================
+#ifdef ZCL_MS
+  {
+    ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
+    { // >>>> TEMPERATURE Attribute <<<<
+      ATTRID_TEMPERATURE_MEASUREMENT_MEASURED_VALUE,
+      ZCL_DATATYPE_INT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.temperature
+    }
+  },
+// ------------------------------------------------------------
+  {
+    ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
+    { // >>>> PARTICULATES Attribute <<<<
+      ATTRID_TEMPERATURE_MEASUREMENT_MIN_MEASURED_VALUE,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.particulates
+    }
+  },
+// ------------------------------------------------------------
+  {
+    ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
+    { // >>>> OCCUPANCY Attribute <<<<
+      ATTRID_TEMPERATURE_MEASUREMENT_TOLERANCE,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.occupancy
+    }
+  },
+// ------------------------------------------------------------
+  {
+    ZCL_CLUSTER_ID_MS_RELATIVE_HUMIDITY,
+    { // >>>> HUMIDITY Attribute <<<<
+      ATTRID_RELATIVITY_HUMIDITY_MEASURED_VALUE,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.humidity
+    }
+  },
+// ------------------------------------------------------------
+  {
+    ZCL_CLUSTER_ID_MS_RELATIVE_HUMIDITY,
+    { // >>>> CARBON MONOXIDE Attribute <<<<
+      ATTRID_RELATIVITY_HUMIDITY_TOLERANCE,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.carbonmonoxide
+    }
+  },
+// ------------------------------------------------------------
+  {
+    ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT,
+    { // >>>> PRESSURE Attribute <<<<
+      ATTRID_PRESSURE_MEASUREMENT_MEASURED_VALUE,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.pressure
+    }
+  },
+// ------------------------------------------------------------
+  {
+    ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT,
+    { // >>>> CARBON DIOXIDE Attribute <<<<
+      ATTRID_PRESSURE_MEASUREMENT_TOLERANCE,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.carbondioxide
+    }
+  },
+// ------------------------------------------------------------
+  {
+    ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT,
+    { // >>>> SMOKE Attribute <<<<
+      ATTRID_PRESSURE_MEASUREMENT_SCALED_VALUE,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.smoke
+    }
+  },
+// ------------------------------------------------------------
+  {
+    ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT,
+    { // >>>> VOC Attribute <<<<
+      ATTRID_PRESSURE_MEASUREMENT_SCALED_TOLERANCE,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.voc
+    }
+  },
+// ------------------------------------------------------------
+#endif // ZCL_MS
+// ===================================================================================================================
+// =========================================== SAEMS COLOR CONTROL CLUSTERS ==========================================
+// ===================================================================================================================
+#ifdef ZCL_LIGHTING
+  {
+  ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL,
+    { // CURRENT HUE Attribute
+      ATTRID_COLOR_CONTROL_CURRENT_HUE,
+      ZCL_DATATYPE_UINT8,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&SAEMS_ColorControl_CurrentHue
+    }
+  },
+  {
+    ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL,
+    { // CURRENT SATURATION Attribute
+      ATTRID_COLOR_CONTROL_CURRENT_SATURATION,
+      ZCL_DATATYPE_UINT8,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&SAEMS_ColorControl_CurrentSaturation
+    }
+  }
+#endif  // ZCL_LIGHTING
+// --------------------------------------------------------------------------------------------------------------------
 };
 
 uint8_t CONST zclSampleLight_NumAttributes = ( sizeof(zclSampleLight_Attrs) / sizeof(zclSampleLight_Attrs[0]) );
@@ -615,6 +730,12 @@ const cId_t zclSampleLight_InClusterList[] =
 #ifdef ZCL_LEVEL_CTRL
   , ZCL_CLUSTER_ID_GENERAL_LEVEL_CONTROL
 #endif
+,
+// Sensor and App - added Cluster IDs
+  ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL,
+  ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
+  ZCL_CLUSTER_ID_MS_RELATIVE_HUMIDITY,
+  ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT
 };
 
 #define ZCLSAMPLELIGHT_MAX_INCLUSTERS   (sizeof(zclSampleLight_InClusterList) / sizeof(zclSampleLight_InClusterList[0]))
@@ -623,11 +744,7 @@ SimpleDescriptionFormat_t zclSampleLight_SimpleDesc =
 {
   SAMPLELIGHT_ENDPOINT,                  //  int Endpoint;
   ZCL_HA_PROFILE_ID,                     //  uint16_t AppProfId;
-#ifdef ZCL_LEVEL_CTRL
-  ZCL_DEVICEID_DIMMABLE_LIGHT,        //  uint16_t AppDeviceId;
-#else
-  ZCL_DEVICEID_ON_OFF_LIGHT,          //  uint16_t AppDeviceId;
-#endif
+  ZCL_DEVICEID_SIMPLE_SENSOR,            //  uint16_t AppDeviceId;
   SAMPLELIGHT_DEVICE_VERSION,            //  int   AppDevVer:4;
   SAMPLELIGHT_FLAGS,                     //  int   AppFlags:4;
   ZCLSAMPLELIGHT_MAX_INCLUSTERS,         //  byte  AppNumInClusters;
@@ -679,6 +796,16 @@ void zclSampleLight_updateOnOffAttribute(uint8_t OnOff)
         Req.endpoint = SAMPLELIGHT_ENDPOINT;
 
       Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
+#endif
+#ifdef ZCL_MEASUREMENT_TESTING
+#ifdef BDB_REPORTING
+
+        Req.attrID = ATTRID_PRESSURE_MEASUREMENT_SCALED_VALUE;
+        Req.cluster = ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT;
+        Req.endpoint = SAMPLELIGHT_ENDPOINT;
+
+      Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
+#endif
 #endif
     }
 }
@@ -776,9 +903,110 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
 
   zclSampleLight_IdentifyTime = 0;
 }
+// ====================================================================================================================
+// ====================================================================================================================
+#ifdef ZCL_DATA_UPDATE
+  void updateSensorData(void){
 
+    zstack_bdbRepChangedAttrValueReq_t Req;
+    Req.endpoint = SAMPLELIGHT_ENDPOINT;
 
+    printf("***************************************\n");
+    printf("Updating current sensor data to new sensor data and sending to hub\n");
 
+    // Update temperature value
+    if (abs(sensorDataCurrent.temperature - sensorDataNew.temperature) > TEMPERATURE_UPDATE_THRESHOLD) {
+        sensorDataCurrent.temperature = sensorDataNew.temperature;
+        printf("Temperature updated to %d\n", sensorDataCurrent.temperature);
+
+        Req.attrID = ATTRID_TEMPERATURE_MEASUREMENT_MEASURED_VALUE;
+        Req.cluster = ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT;
+        Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
+    }
+
+    // Update humidity value
+    if (abs(sensorDataCurrent.humidity - sensorDataNew.humidity) > HUMIDITY_UPDATE_THRESHOLD) {
+        sensorDataCurrent.humidity = sensorDataNew.humidity;
+        printf("Humidity updated to %d\n", sensorDataCurrent.humidity);
+
+        Req.attrID = ATTRID_RELATIVITY_HUMIDITY_MEASURED_VALUE;
+        Req.cluster = ZCL_CLUSTER_ID_MS_RELATIVE_HUMIDITY;
+        Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
+    }
+
+    // Update pressure value
+    if (abs(sensorDataCurrent.pressure - sensorDataNew.pressure) > PRESSURE_UPDATE_THRESHOLD) {
+        sensorDataCurrent.pressure = sensorDataNew.pressure;
+        printf("Pressure updated to %d\n", sensorDataCurrent.pressure);
+
+        Req.attrID = ATTRID_PRESSURE_MEASUREMENT_MEASURED_VALUE;
+        Req.cluster = ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT;
+        Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
+    }
+
+    // Update occupancy value
+    if (abs(sensorDataCurrent.occupancy - sensorDataNew.occupancy) > OCCUPANCY_UPDATE_THRESHOLD) {
+        sensorDataCurrent.occupancy = sensorDataNew.occupancy;
+        printf("Occupancy updated to %d\n", sensorDataCurrent.occupancy);
+
+        Req.attrID = ATTRID_TEMPERATURE_MEASUREMENT_TOLERANCE;
+        Req.cluster = ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT;
+        Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
+    }
+
+    // Update carbonmonoxide value
+    if (abs(sensorDataCurrent.carbonmonoxide - sensorDataNew.carbonmonoxide) > CARBONMONOXIDE_UPDATE_THRESHOLD) {
+        sensorDataCurrent.carbonmonoxide = sensorDataNew.carbonmonoxide;
+        printf("Carbonmonoxide updated to %d\n", sensorDataCurrent.carbonmonoxide);
+
+        Req.attrID = ATTRID_RELATIVITY_HUMIDITY_TOLERANCE;
+        Req.cluster = ZCL_CLUSTER_ID_MS_RELATIVE_HUMIDITY;
+        Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
+    }
+
+    // Update carbondioxide value
+    if (abs(sensorDataCurrent.carbondioxide - sensorDataNew.carbondioxide) > CARBONDIOXIDE_UPDATE_THRESHOLD) {
+        sensorDataCurrent.carbondioxide = sensorDataNew.carbondioxide;
+        printf("Carbondioxide updated to %d\n", sensorDataCurrent.carbondioxide);
+
+        Req.attrID = ATTRID_PRESSURE_MEASUREMENT_TOLERANCE;
+        Req.cluster = ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT;
+        Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
+    }
+
+    // Update smoke value
+    if (abs(sensorDataCurrent.smoke - sensorDataNew.smoke) > SMOKE_UPDATE_THRESHOLD) {
+        sensorDataCurrent.smoke = sensorDataNew.smoke;
+        printf("Smoke updated to %d\n", sensorDataCurrent.smoke);
+
+        Req.attrID = ATTRID_PRESSURE_MEASUREMENT_SCALED_VALUE;
+        Req.cluster = ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT;
+        Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
+    }
+
+    // Update voc value
+    if (abs(sensorDataCurrent.voc - sensorDataNew.voc) > VOC_UPDATE_THRESHOLD) {
+        sensorDataCurrent.voc = sensorDataNew.voc;
+        printf("Voc updated to %d\n", sensorDataCurrent.voc);
+
+        Req.attrID = ATTRID_PRESSURE_MEASUREMENT_SCALED_TOLERANCE;
+        Req.cluster = ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT;
+        Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
+    }
+
+    // Update particulates value
+    if (abs(sensorDataCurrent.particulates - sensorDataNew.particulates) > PARTICULATES_UPDATE_THRESHOLD) {
+        sensorDataCurrent.particulates = sensorDataNew.particulates;
+        printf("Particulates updated to %d\n", sensorDataCurrent.particulates);
+
+        Req.attrID = ATTRID_TEMPERATURE_MEASUREMENT_MIN_MEASURED_VALUE;
+        Req.cluster = ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT;
+        Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
+    }
+
+    printf("***************************************\n");
+  }
+#endif
 
 /****************************************************************************
 ****************************************************************************/
