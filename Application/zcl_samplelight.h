@@ -92,6 +92,10 @@ extern "C"
 
 #define SAMPLEAPP_END_DEVICE_REJOIN_DELAY 1000
 #define SAMPLEAPP_CONFIG_SYNC_TIMEOUT     500
+#define SENSOR_UPDATE_TIMEOUT             10000
+
+// Update structures
+#define ZCL_DATA_UPDATE
 
 #if defined (BDB_TL_TARGET) || defined (BDB_TL_INITIATOR)
 #define TL_BDB_FB_EVT                     0x0100
@@ -148,9 +152,25 @@ extern uint16_t zclSampleLight_LevelOffTransitionTime;
 extern uint8_t  zclSampleLight_LevelDefaultMoveRate;
 #endif
 
+// Color Control Attributes
+extern uint8_t SAEMS_ColorControl_CurrentHue;
+extern uint8_t SAEMS_ColorControl_CurrentSaturation;
 
+// Sensor Data structure
+typedef struct SAEMS_SensorData_t {
+    int16_t temperature;
+    int16_t humidity;
+    int16_t pressure;
+    int16_t occupancy;
+    int16_t carbonmonoxide;
+    int16_t carbondioxide;
+    int16_t smoke;
+    int16_t voc;
+    int16_t particulates;
+} SAEMS_SensorData;
 
-
+extern SAEMS_SensorData sensorDataCurrent;
+extern SAEMS_SensorData sensorDataNew;
 
 /*********************************************************************
  * FUNCTIONS
@@ -198,6 +218,11 @@ extern uint8_t zclSampleLight_getCurrentLevelAttribute(void);
 #if defined (ENABLE_GREENPOWER_COMBO_BASIC)
 void zclSampleLight_setGPSinkCommissioningMode(const int32_t _itemEntry);
 #endif
+#endif
+
+extern void getSensorData();
+#ifdef ZCL_DATA_UPDATE
+extern void updateSensorData(void);
 #endif
 /*********************************************************************
 *********************************************************************/
