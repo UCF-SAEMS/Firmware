@@ -648,17 +648,21 @@ ZStatus_t zclSAEMS_ColorControlMoveToSaturationCB( zclCCMoveToSaturation_t *pCmd
  * @return    none
  */
 ZStatus_t zclSAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturation_t *pCmd ){
-  // Get the hue and saturation calues from the "Move to Hue and Saturation" command and save it to the
+  // Get the hue and saturation values from the "Move to Hue and Saturation" command and save it to the
   // hue and saturation variables
-  uint8_t newHue = pCmd->hue;
-  uint8_t newSaturation = pCmd->saturation;
-  SAEMS_ColorControl_CurrentHue = newHue;
-  SAEMS_ColorControl_CurrentSaturation = newSaturation;
+  SAEMS_ColorControl_CurrentHue = pCmd->hue;
+  SAEMS_ColorControl_CurrentSaturation = pCmd->saturation;
 
+  // Cast the hue and saturations as floats and get the current intensity
+  float hue = (float) SAEMS_ColorControl_CurrentHue;
+  float saturation = (float) SAEMS_ColorControl_CurrentHue;
+  float intensity = (float)zclSampleLight_getCurrentLevelAttribute();
   // Pass the 'new hue and saturation' to the LED Board Driver Function
-  // ...
-    printf("Thread entered 'Move To Hue and Saturation' callback function from receiving command: %d %d", newHue, newSaturation);
-    return ZSuccess;
+  ledboard.hsi(hue, saturation, intensity);
+
+  printf("Thread entered 'Move To Hue and Saturation' callback function from receiving command: %d %d", SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation);
+
+  return ZSuccess;
 }
 #endif // ZCL_LIGHTING
 
@@ -697,10 +701,15 @@ static void getSensorData(){
     // TO-DO:
     
     bme280_if_get_all_sensor_data(&bme_data, &bme_dev);
+    char buffer[500];
 
     sensorDataNew.temperature = (int16_t)bme_data.temperature;
     sensorDataNew.pressure =    (int16_t)bme_data.pressure;
     sensorDataNew.humidity =    (int16_t)bme_data.humidity;
+
+    buffer[0] = '\0';
+    sprintf(buffer, "BME280: %6u deg C, %7u hPa, %6u %%RH\r\n", bme_data.temperature, bme_data.pressure, bme_data.humidity);
+    Display_printf(display, 2, 0, "%s", buffer);
 
     // The following is sample data...
     #ifdef ZCL_MEASURE_TESTING
@@ -791,6 +800,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   led.set(RGB_States::RED | RGB_States::GREEN);
 
   ledboard.init();
+  ledboard.hsi(100, 1, 0.5);
 
   // No return from task process
   zclSampleLight_process_loop();
@@ -1034,11 +1044,6 @@ static void zclSampleLight_Init( void )
 #endif
 #endif
 
-  // Call BDB initialization. Should be called once from application at startup to restore
-  // previous network configuration, if applicable.
-  zstack_bdbStartCommissioningReq_t zstack_bdbStartCommissioningReq;
-  zstack_bdbStartCommissioningReq.commissioning_mode = 0;
-  Zstackapi_bdbStartCommissioningReq(appServiceTaskId,&zstack_bdbStartCommissioningReq);
 }
 
 #ifndef CUI_DISABLE
@@ -1154,7 +1159,6 @@ static void zclSampleLight_initializeClocks(void)
     SENSOR_UPDATE_TIMEOUT,
     0, false, 0);
     // ==============================================================
-
 }
 
 #if ZG_BUILD_ENDDEVICE_TYPE
@@ -1210,6 +1214,13 @@ static void zclSampleLight_processDiscoveryTimeoutCallback(UArg a0)
  */
 static void zclSampleLight_process_loop(void)
 {
+    zclSampleLight_BdbCommissioningModes = BDB_COMMISSIONING_MODE_NWK_STEERING | BDB_COMMISSIONING_MODE_FINDING_BINDING;
+    // Call BDB initialization. Should be called once from application at startup to restore
+    // previous network configuration, if applicable.
+    zstack_bdbStartCommissioningReq_t zstack_bdbStartCommissioningReq;
+    zstack_bdbStartCommissioningReq.commissioning_mode = zclSampleLight_BdbCommissioningModes;
+    Zstackapi_bdbStartCommissioningReq(appServiceTaskId,&zstack_bdbStartCommissioningReq);
+
     // Start the I2C Data Transfer Clock
     printf("Sensor Data Transfer Clock has been started ... \n");
     UtilTimer_setTimeout(SensorDataClkHandle, SENSOR_UPDATE_TIMEOUT);
