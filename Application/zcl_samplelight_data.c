@@ -80,7 +80,7 @@
 #define DEFAULT_OFF_TRANSITION_TIME 20
 #define DEFAULT_MOVE_RATE 0 // as fast as possible
 
-#define DEFAULT_ON_OFF_STATE LIGHT_OFF
+#define DEFAULT_ON_OFF_STATE LIGHT_ON
 #define DEFAULT_LEVEL ATTR_LEVEL_MAX_LEVEL
 
 // Used to update sensor structs
@@ -107,13 +107,13 @@
 #define SAEMS_PARTICULATES_MIN_MEASURED_VALUE 0000
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 // Color Control Cluster
-#define SAEMS_COLORCONTROL_CURRENT_HUE 0x00
-#define SAEMS_COLORCONTROL_CURRENT_SATURATION 0x00
+#define SAEMS_COLORCONTROL_CURRENT_HUE 100
+#define SAEMS_COLORCONTROL_CURRENT_SATURATION 1
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 // Thresholds to update the sensor data struct
-#define TEMPERATURE_UPDATE_THRESHOLD 0010
-#define HUMIDITY_UPDATE_THRESHOLD 0010
-#define PRESSURE_UPDATE_THRESHOLD 0010
+#define TEMPERATURE_UPDATE_THRESHOLD 0001
+#define HUMIDITY_UPDATE_THRESHOLD 0001
+#define PRESSURE_UPDATE_THRESHOLD 0001
 #define OCCUPANCY_UPDATE_THRESHOLD 0010
 #define CARBONMONOXIDE_UPDATE_THRESHOLD 0010
 #define CARBONDIOXIDE_UPDATE_THRESHOLD 0010
@@ -915,7 +915,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     // Update temperature value
     if (abs(sensorDataCurrent.temperature - sensorDataNew.temperature) > TEMPERATURE_UPDATE_THRESHOLD) {
         sensorDataCurrent.temperature = sensorDataNew.temperature;
-        printf("Temperature updated to %d\n", sensorDataCurrent.temperature);
+        printf("Temperature updated to %u\n", (unsigned int)sensorDataCurrent.temperature);
 
         Req.attrID = ATTRID_TEMPERATURE_MEASUREMENT_MEASURED_VALUE;
         Req.cluster = ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT;
@@ -925,7 +925,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     // Update humidity value
     if (abs(sensorDataCurrent.humidity - sensorDataNew.humidity) > HUMIDITY_UPDATE_THRESHOLD) {
         sensorDataCurrent.humidity = sensorDataNew.humidity;
-        printf("Humidity updated to %d\n", sensorDataCurrent.humidity);
+        printf("Humidity updated to %u\n", (unsigned int)sensorDataCurrent.humidity);
 
         Req.attrID = ATTRID_RELATIVITY_HUMIDITY_MEASURED_VALUE;
         Req.cluster = ZCL_CLUSTER_ID_MS_RELATIVE_HUMIDITY;
@@ -935,7 +935,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     // Update pressure value
     if (abs(sensorDataCurrent.pressure - sensorDataNew.pressure) > PRESSURE_UPDATE_THRESHOLD) {
         sensorDataCurrent.pressure = sensorDataNew.pressure;
-        printf("Pressure updated to %d\n", sensorDataCurrent.pressure);
+        printf("Pressure updated to %u\n", (unsigned int)sensorDataCurrent.pressure);
 
         Req.attrID = ATTRID_PRESSURE_MEASUREMENT_MEASURED_VALUE;
         Req.cluster = ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT;
@@ -945,7 +945,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     // Update occupancy value
     if (abs(sensorDataCurrent.occupancy - sensorDataNew.occupancy) > OCCUPANCY_UPDATE_THRESHOLD) {
         sensorDataCurrent.occupancy = sensorDataNew.occupancy;
-        printf("Occupancy updated to %d\n", sensorDataCurrent.occupancy);
+        printf("Occupancy updated to %u\n", (unsigned int)sensorDataCurrent.occupancy);
 
         Req.attrID = ATTRID_TEMPERATURE_MEASUREMENT_TOLERANCE;
         Req.cluster = ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT;
@@ -955,7 +955,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     // Update carbonmonoxide value
     if (abs(sensorDataCurrent.carbonmonoxide - sensorDataNew.carbonmonoxide) > CARBONMONOXIDE_UPDATE_THRESHOLD) {
         sensorDataCurrent.carbonmonoxide = sensorDataNew.carbonmonoxide;
-        printf("Carbonmonoxide updated to %d\n", sensorDataCurrent.carbonmonoxide);
+        printf("Carbonmonoxide updated to %u\n", (unsigned int)sensorDataCurrent.carbonmonoxide);
 
         Req.attrID = ATTRID_RELATIVITY_HUMIDITY_TOLERANCE;
         Req.cluster = ZCL_CLUSTER_ID_MS_RELATIVE_HUMIDITY;
@@ -965,7 +965,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     // Update carbondioxide value
     if (abs(sensorDataCurrent.carbondioxide - sensorDataNew.carbondioxide) > CARBONDIOXIDE_UPDATE_THRESHOLD) {
         sensorDataCurrent.carbondioxide = sensorDataNew.carbondioxide;
-        printf("Carbondioxide updated to %d\n", sensorDataCurrent.carbondioxide);
+        printf("Carbondioxide updated to %u\n", (unsigned int)sensorDataCurrent.carbondioxide);
 
         Req.attrID = ATTRID_PRESSURE_MEASUREMENT_TOLERANCE;
         Req.cluster = ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT;
@@ -975,7 +975,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     // Update smoke value
     if (abs(sensorDataCurrent.smoke - sensorDataNew.smoke) > SMOKE_UPDATE_THRESHOLD) {
         sensorDataCurrent.smoke = sensorDataNew.smoke;
-        printf("Smoke updated to %d\n", sensorDataCurrent.smoke);
+        printf("Smoke updated to %u\n", (unsigned int)sensorDataCurrent.smoke);
 
         Req.attrID = ATTRID_PRESSURE_MEASUREMENT_SCALED_VALUE;
         Req.cluster = ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT;
@@ -985,7 +985,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     // Update voc value
     if (abs(sensorDataCurrent.voc - sensorDataNew.voc) > VOC_UPDATE_THRESHOLD) {
         sensorDataCurrent.voc = sensorDataNew.voc;
-        printf("Voc updated to %d\n", sensorDataCurrent.voc);
+        printf("Voc updated to %u\n", (unsigned int)sensorDataCurrent.voc);
 
         Req.attrID = ATTRID_PRESSURE_MEASUREMENT_SCALED_TOLERANCE;
         Req.cluster = ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT;
@@ -995,7 +995,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     // Update particulates value
     if (abs(sensorDataCurrent.particulates - sensorDataNew.particulates) > PARTICULATES_UPDATE_THRESHOLD) {
         sensorDataCurrent.particulates = sensorDataNew.particulates;
-        printf("Particulates updated to %d\n", sensorDataCurrent.particulates);
+        printf("Particulates updated to %u\n", (unsigned int)sensorDataCurrent.particulates);
 
         Req.attrID = ATTRID_TEMPERATURE_MEASUREMENT_MIN_MEASURED_VALUE;
         Req.cluster = ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT;

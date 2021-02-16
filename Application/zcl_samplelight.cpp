@@ -85,6 +85,7 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "rom_jt_154.h"
 #include "zcomdef.h"
@@ -345,7 +346,6 @@ static void zclSampleLight_LevelControlMoveCB( zclLCMove_t *pCmd );
 static void zclSampleLight_LevelControlStepCB( zclLCStep_t *pCmd );
 static void zclSampleLight_LevelControlStopCB( zclLCStop_t *pCmd );
 static void zclSampleLight_LevelControlMoveToClosestFrequencyCB( zclLCMoveFreq_t *pCmd );
-static void zclSampleLight_DefaultMove( uint8_t OnOff );
 static uint32_t zclSampleLight_TimeRateHelper( uint8_t newLevel );
 static uint16_t zclSampleLight_GetTime ( uint8_t level, uint16_t time );
 static void zclSampleLight_MoveBasedOnRate( uint8_t newLevel, uint32_t rate );
@@ -367,10 +367,6 @@ static uint8_t zclSampleLight_ProcessInDiscCmdsRspCmd( zclIncoming_t *pInMsg );
 static uint8_t zclSampleLight_ProcessInDiscAttrsRspCmd( zclIncoming_t *pInMsg );
 static uint8_t zclSampleLight_ProcessInDiscAttrsExtRspCmd( zclIncoming_t *pInMsg );
 #endif
-
-
-static void zclSampleLight_UpdateLedState(void);
-
 
 #ifdef ZCL_LEVEL_CTRL
 static void zclSampleLight_processLevelControlTimeoutCallback(UArg a0);
@@ -420,9 +416,7 @@ static DMMPolicy_AppCbs_t dmmPolicyAppCBs =
 // ------------------------------------------ SAEMS-SPECIFIED PROTOTYPES -----------------------------------------
 // ===============================================================================================================
 #ifdef ZCL_LIGHTING
-ZStatus_t zclSAEMS_ColorControlMoveToHueCB( zclCCMoveToHue_t *pCmd );
-ZStatus_t zclSAEMS_ColorControlMoveToSaturationCB( zclCCMoveToSaturation_t *pCmd );
-ZStatus_t zclSAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturation_t *pCmd );
+ZStatus_t SAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturation_t *pCmd );
 #endif // ZCL_LIGHTING
 
 static void SAEMS_SensorsCallback(UArg a0);
@@ -493,13 +487,13 @@ static zclGeneral_AppCallbacks_t zclSampleLight_CmdCallbacks =
 // ======================================
 static zclLighting_AppCallbacks_t zclSAEMS_CmdCallbacks =
 {
-  zclSAEMS_ColorControlMoveToHueCB,                         // Color Control Move to Hue (0x00)
+  NULL,                                                     // Color Control Move to Hue (0x00)
   NULL,                                                     // Color Control Move Hue (0x01)
   NULL,                                                     // Color Control Step Hue (0x02)
-  zclSAEMS_ColorControlMoveToSaturationCB,                  // Color Control Move to Saturation (0x03)
+  NULL,                                                     // Color Control Move to Saturation (0x03)
   NULL,                                                     // Color Control Move Saturation (0x04)
   NULL,                                                     // Color Control Step Saturation (0x05)
-  zclSAEMS_ColorControlMoveToHueAndSaturationCB,            // Color Control Move to Hue and Saturation (0x06)
+  SAEMS_ColorControlMoveToHueAndSaturationCB,               // Color Control Move to Hue and Saturation (0x06)
   NULL,                                                     // Color Control Move to Color
   NULL,                                                     // Color Control Move Color
   NULL,                                                     // Color Control Step Color
@@ -601,45 +595,7 @@ DMMPolicy_StackRole DMMPolicy_StackRole_Zigbee =
 // ------------------------------------------- SAEMS-SPECIFIED FUNCTIONS -------------------------------------------
 // =================================================================================================================
 /******************************************************************************************
- * @fn        zclSAEMS_ColorControlMoveToHueCB
- *
- * @brief     Callback function to adjust the Hue of the LED Board to a specified value
- *
- * @param     pCmd - ZigBee command parameters
- *
- * @return    none
- */
-ZStatus_t zclSAEMS_ColorControlMoveToHueCB( zclCCMoveToHue_t *pCmd ){
-  // Get the hue value from the "Move to Hue" command  and save it to the hue variable
-  uint8_t newHue = pCmd->hue;
-  SAEMS_ColorControl_CurrentHue = newHue;
-  // Pass the 'new hue' to the LED Board Driver Fucntion
-  // ....
-
-    return ZSuccess;
-}
-
-/******************************************************************************************
- * @fn        zclSAEMS_ColorControlMoveToSaturationCB
- *
- * @brief     Callback function to adjust the Saturation of the LED Board to a specified value
- *
- * @param     pCmd - ZigBee command parameters
- *
- * @return    none
- */
-ZStatus_t zclSAEMS_ColorControlMoveToSaturationCB( zclCCMoveToSaturation_t *pCmd ){
-  // Get the saturation value from the "Move to Saturation" command and save it to the saturation variable
-  uint8_t newSaturation = pCmd->saturation;
-  SAEMS_ColorControl_CurrentSaturation = newSaturation;
-  // Pass the 'new saturation' to the LED Board Driver Function
-  // ...
-
-    return ZSuccess;
-}
-
-/******************************************************************************************
- * @fn        zclSAEMS_ColorControlMoveToHueAndSaturationCB
+ * @fn        SAEMS_ColorControlMoveToHueAndSaturationCB
  *
  * @brief     Callback function to adjust the Hue and Saturation of the LED Board to a specified value
  *
@@ -647,7 +603,7 @@ ZStatus_t zclSAEMS_ColorControlMoveToSaturationCB( zclCCMoveToSaturation_t *pCmd
  *
  * @return    none
  */
-ZStatus_t zclSAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturation_t *pCmd ){
+ZStatus_t SAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturation_t *pCmd ){
   // Get the hue and saturation values from the "Move to Hue and Saturation" command and save it to the
   // hue and saturation variables
   SAEMS_ColorControl_CurrentHue = pCmd->hue;
@@ -656,11 +612,11 @@ ZStatus_t zclSAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSatura
   // Cast the hue and saturations as floats and get the current intensity
   float hue = (float) SAEMS_ColorControl_CurrentHue;
   float saturation = (float) SAEMS_ColorControl_CurrentHue;
-  float intensity = (float)zclSampleLight_getCurrentLevelAttribute();
+  float intensity = ( (float)zclSampleLight_getCurrentLevelAttribute() ) / 100.0;
   // Pass the 'new hue and saturation' to the LED Board Driver Function
   ledboard.hsi(hue, saturation, intensity);
 
-  printf("Thread entered 'Move To Hue and Saturation' callback function from receiving command: %d %d", SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation);
+  printf("Thread entered 'Move To Hue and Saturation' callback function from receiving command: %d %d\n", SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation);
 
   return ZSuccess;
 }
@@ -696,19 +652,27 @@ static void SAEMS_SensorsCallback(UArg a0){
  * @return  none
  */
 static void getSensorData(){
-    printf("Gathering Sensor Data...");
+    printf("Gathering Sensor Data...\n");
     // Using driver functions, get data from I2C lines and store in the new struct
     // TO-DO:
     
     bme280_if_get_all_sensor_data(&bme_data, &bme_dev);
     char buffer[500];
 
-    sensorDataNew.temperature = (int16_t)bme_data.temperature;
-    sensorDataNew.pressure =    (int16_t)bme_data.pressure;
-    sensorDataNew.humidity =    (int16_t)bme_data.humidity;
+    sensorDataNew.temperature = 0.1 *bme_data.temperature;
+    sensorDataNew.pressure =    0.1 *bme_data.pressure;
+    sensorDataNew.humidity =    0.01 *bme_data.humidity;
 
     buffer[0] = '\0';
     sprintf(buffer, "BME280: %6u deg C, %7u hPa, %6u %%RH\r\n", bme_data.temperature, bme_data.pressure, bme_data.humidity);
+    Display_printf(display, 1, 0, "%s", buffer);
+
+    float temp     = 0.1f *sensorDataNew.temperature;
+    float pressure = 0.1f *sensorDataNew.pressure;
+    float humidity = 0.1f *sensorDataNew.humidity;
+
+    buffer[0] = '\0';
+    sprintf(buffer, "BME280: %6.2f deg C, %7.2f hPa, %6.2f %%RH\r\n", temp, pressure, humidity);
     Display_printf(display, 2, 0, "%s", buffer);
 
     // The following is sample data...
@@ -800,7 +764,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   led.set(RGB_States::RED | RGB_States::GREEN);
 
   ledboard.init();
-  ledboard.hsi(100, 1, 0.5);
+  ledboard.hsi(SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation, 0.5);
 
   // No return from task process
   zclSampleLight_process_loop();
@@ -2118,8 +2082,6 @@ static void zclSampleLight_BasicResetCB( void )
 
   zclSampleLight_ResetAttributesToDefaultValues();
 
-  zclSampleLight_UpdateLedState();
-
 #ifndef CUI_DISABLE
   zclSampleLight_UpdateStatusLine();
 #endif
@@ -2140,6 +2102,8 @@ static void zclSampleLight_OnOffCB( uint8_t cmd )
   afIncomingMSGPacket_t *pPtr = zcl_getRawAFMsg();
 
   uint8_t OnOff = 0xFE; // initialize to invalid
+  uint8_t LightLevel = 0xFE;
+  float OnOff_Intensity = 0.00;
 
   zclSampleLight_DstAddr.addr.shortAddr = pPtr->srcAddr.addr.shortAddr;
 
@@ -2147,40 +2111,15 @@ static void zclSampleLight_OnOffCB( uint8_t cmd )
   if ( cmd == COMMAND_ON_OFF_ON )
   {
     OnOff = LIGHT_ON;
+    printf("LIGHT IS TURNING ON!!!\n");
   }
   // Turn off the light
   else if ( cmd == COMMAND_ON_OFF_OFF )
   {
     OnOff = LIGHT_OFF;
+    printf("LIGHT IS TURNING OFF!!!\n");
   }
-  // Toggle the light
-  else if ( cmd == COMMAND_ON_OFF_TOGGLE )
-  {
-#ifdef ZCL_LEVEL_CTRL
-    if (zclSampleLight_LevelRemainingTime > 0)
-    {
-      if (zclSampleLight_NewLevelUp)
-      {
-        OnOff = LIGHT_OFF;
-      }
-      else
-      {
-        OnOff = LIGHT_ON;
-      }
-    }
-    else
-#endif
-    {
-      if (zclSampleLight_getOnOffAttribute() == LIGHT_ON)
-      {
-        OnOff = LIGHT_OFF;
-      }
-      else
-      {
-        OnOff = LIGHT_ON;
-      }
-    }
-  }
+
 
   if( ((zclSampleLight_getOnOffAttribute() == LIGHT_ON) && (OnOff == LIGHT_ON)) ||
       ((zclSampleLight_getOnOffAttribute() == LIGHT_OFF) && (OnOff == LIGHT_OFF)) )
@@ -2190,24 +2129,17 @@ static void zclSampleLight_OnOffCB( uint8_t cmd )
     return;
   }
 
-#ifdef ZCL_LEVEL_CTRL
-  zclSampleLight_LevelChangeCmd = (OnOff == LIGHT_ON ? LEVEL_CHANGED_BY_ON_CMD : LEVEL_CHANGED_BY_OFF_CMD);
-  zclSampleLight_DefaultMove(OnOff);
-#else
-   zclSampleLight_updateOnOffAttribute(OnOff);
-#endif
+  if(zclSampleLight_getCurrentLevelAttribute() > 0)
+    LightLevel = 0;
+  else if(zclSampleLight_getCurrentLevelAttribute() == 0)
+    LightLevel = 50;
 
-  zclSampleLight_UpdateLedState();
+zclSampleLight_updateCurrentLevelAttribute(LightLevel);
+zclSampleLight_updateOnOffAttribute(OnOff);
 
-#if defined(USE_DMM) && defined(BLE_START)
-  // update BLE application
-  RemoteDisplay_updateLightProfData();
-#endif // defined(USE_DMM) && defined(BLE_START)
+OnOff_Intensity = LightLevel / 100.0;
+ledboard.hsi(SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation, OnOff_Intensity);
 
-#ifndef CUI_DISABLE
-  //Update status line
-  zclSampleLight_UpdateStatusLine();
-#endif
 }
 
 #ifdef ZCL_LEVEL_CTRL
@@ -2366,69 +2298,6 @@ static uint16_t zclSampleLight_GetTime( uint8_t newLevel, uint16_t time )
 }
 
 /*********************************************************************
- * @fn      zclSampleLight_DefaultMove
- *
- * @brief   We were turned on/off. Use default time to move to on or off.
- *
- * @param   zclSampleLight_OnOff - must be set prior to calling this function.
- *
- * @return  none
- */
-static void zclSampleLight_DefaultMove( uint8_t OnOff )
-{
-  uint8_t  newLevel;
-  uint32_t rate;      // fixed point decimal (3 places, eg. 16.345)
-  uint16_t time;
-
-  // if moving to on position, move to on level
-  if ( OnOff )
-  {
-    if (zclSampleLight_getOnOffAttribute() == LIGHT_OFF)
-    {
-        zclSampleLight_updateCurrentLevelAttribute(ATTR_LEVEL_MIN_LEVEL);
-    }
-
-    if ( zclSampleLight_LevelOnLevel == ATTR_LEVEL_ON_LEVEL_NO_EFFECT )
-    {
-      // The last Level (before going OFF) should be used)
-      newLevel = zclSampleLight_LevelLastLevel;
-    }
-    else
-    {
-      newLevel = zclSampleLight_LevelOnLevel;
-    }
-
-    time = zclSampleLight_LevelOnTransitionTime;
-
-  }
-  else
-  {
-    newLevel = ATTR_LEVEL_MIN_LEVEL;
-
-    time = zclSampleLight_LevelOffTransitionTime;
-  }
-
-  // else use OnOffTransitionTime if set (not 0xffff)
-  if ( time == 0xFFFF )
-  {
-    time = zclSampleLight_LevelOnOffTransitionTime;
-  }
-
-  // else as fast as possible
-  if ( time == 0xFFFF )
-  {
-    time = 1;
-  }
-
-  // calculate rate based on time (int 10ths) for full transition (1-254)
-  rate = 255000 / time;    // units per tick, fixed point, 3 decimal places (e.g. 8500 = 8.5 units per tick)
-
-  // start up state machine.
-  zclSampleLight_WithOnOff = TRUE;
-  zclSampleLight_MoveBasedOnRate( newLevel, rate );
-}
-
-/*********************************************************************
  * @fn      zclSampleLight_AdjustLightLevel
  *
  * @brief   Called each 10th of a second while state machine running
@@ -2499,8 +2368,6 @@ static void zclSampleLight_AdjustLightLevel( void )
     zclSampleLight_updateOnOffAttribute(OnOffTempState);
   }
 
-
-  zclSampleLight_UpdateLedState();
 #ifndef CUI_DISABLE
   zclSampleLight_UpdateStatusLine();
 #endif
@@ -2710,8 +2577,6 @@ static void zclSampleLight_SceneRecallCB( zclSceneReq_t *pReq )
     zclSampleLight_ScenesValid = TRUE;
     zclSampleLight_ScenesCurrentGroup = pReq->scene->groupID;
     zclSampleLight_ScenesCurrentScene = pReq->scene->ID;
-
-    zclSampleLight_UpdateLedState();
 
 }
 
@@ -3057,33 +2922,6 @@ void zclSampleLight_UiActionSwitchDiscovery(const int32_t _itemEntry)
 
 }
 
-
-static void zclSampleLight_UpdateLedState(void)
-{
-
-#ifndef CUI_DISABLE
-  // set the LED1 based on light (on or off)
-  if ( LIGHT_ON == zclSampleLight_getOnOffAttribute())
-  {
-#ifdef ZCL_LEVEL_CTRL
-    uint8_t lightLevel = zclSampleLight_getCurrentLevelAttribute();
-
-    // lightLevel is a value from 0-255. We must map this to a percentage (0-100%)
-    LED_stopBlinking(gRedLedHandle);
-    LED_setOn(gRedLedHandle, (lightLevel * 100) / 255);
-#else
-    LED_stopBlinking(gRedLedHandle);
-    LED_setOn(gRedLedHandle, LED_BRIGHTNESS_MAX);
-    #endif
-  }
-  else
-  {
-    LED_stopBlinking(gRedLedHandle);
-    LED_setOff(gRedLedHandle);
-  }
-#endif
-
-}
 
 
 /****************************************************************************
