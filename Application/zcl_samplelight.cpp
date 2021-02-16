@@ -342,10 +342,6 @@ static void zclSampleLight_ProcessCommissioningStatus(bdbCommissioningModeMsg_t 
 
 #ifdef ZCL_LEVEL_CTRL
 static void zclSampleLight_LevelControlMoveToLevelCB( zclLCMoveToLevel_t *pCmd );
-static void zclSampleLight_LevelControlMoveCB( zclLCMove_t *pCmd );
-static void zclSampleLight_LevelControlStepCB( zclLCStep_t *pCmd );
-static void zclSampleLight_LevelControlStopCB( zclLCStop_t *pCmd );
-static void zclSampleLight_LevelControlMoveToClosestFrequencyCB( zclLCMoveFreq_t *pCmd );
 static uint32_t zclSampleLight_TimeRateHelper( uint8_t newLevel );
 static uint16_t zclSampleLight_GetTime ( uint8_t level, uint16_t time );
 static void zclSampleLight_MoveBasedOnRate( uint8_t newLevel, uint32_t rate );
@@ -458,10 +454,10 @@ static zclGeneral_AppCallbacks_t zclSampleLight_CmdCallbacks =
 #endif
 #ifdef ZCL_LEVEL_CTRL
   zclSampleLight_LevelControlMoveToLevelCB,             // Level Control Move to Level command
-  zclSampleLight_LevelControlMoveCB,                    // Level Control Move command
-  zclSampleLight_LevelControlStepCB,                    // Level Control Step command
-  zclSampleLight_LevelControlStopCB,                    // Level Control Stop command
-  zclSampleLight_LevelControlMoveToClosestFrequencyCB,  // Level Control Stop command
+  NULL,                                                 // Level Control Move command
+  NULL,                                                 // Level Control Step command
+  NULL,                                                 // Level Control Stop command
+  NULL,                                                 // Level Control Stop command
 #endif
 #ifdef ZCL_GROUPS
   NULL,                                   // Group Response commands
@@ -2398,123 +2394,6 @@ static void zclSampleLight_LevelControlMoveToLevelCB( zclLCMoveToLevel_t *pCmd )
   zclSampleLight_MoveBasedOnTime( pCmd->level, pCmd->transitionTime );
 }
 
-/*********************************************************************
- * @fn      zclSampleLight_LevelControlMoveCB
- *
- * @brief   Callback from the ZCL General Cluster Library when
- *          it received a LevelControlMove Command for this application.
- *
- * @param   pCmd - ZigBee command parameters
- *
- * @return  none
- */
-static void zclSampleLight_LevelControlMoveCB( zclLCMove_t *pCmd )
-{
-  uint8_t newLevel;
-  uint32_t rate;
-
-  // convert rate from units per second to units per tick (10ths of seconds)
-  // and move at that right up or down
-  zclSampleLight_WithOnOff = pCmd->withOnOff;
-
-  if ( pCmd->moveMode == LEVEL_MOVE_UP )
-  {
-    newLevel = ATTR_LEVEL_MAX_LEVEL;  // fully on
-  }
-  else
-  {
-    newLevel = ATTR_LEVEL_MIN_LEVEL; // fully off
-  }
-
-  zclSampleLight_LevelChangeCmd = LEVEL_CHANGED_BY_LEVEL_CMD;
-
-  rate = (uint32_t)100 * pCmd->rate;
-  zclSampleLight_MoveBasedOnRate( newLevel, rate );
-}
-
-/*********************************************************************
- * @fn      zclSampleLight_LevelControlStepCB
- *
- * @brief   Callback from the ZCL General Cluster Library when
- *          it received an On/Off Command for this application.
- *
- * @param   pCmd - ZigBee command parameters
- *
- * @return  none
- */
-static void zclSampleLight_LevelControlStepCB( zclLCStep_t *pCmd )
-{
-  uint8_t newLevel;
-
-  // determine new level, but don't exceed boundaries
-  if ( pCmd->stepMode == LEVEL_MOVE_UP )
-  {
-    if ( (uint16_t)zclSampleLight_getCurrentLevelAttribute() + pCmd->amount > ATTR_LEVEL_MAX_LEVEL )
-    {
-      newLevel = ATTR_LEVEL_MAX_LEVEL;
-    }
-    else
-    {
-      newLevel = zclSampleLight_getCurrentLevelAttribute() + pCmd->amount;
-    }
-  }
-  else
-  {
-    if ( pCmd->amount >= zclSampleLight_getCurrentLevelAttribute() )
-    {
-      newLevel = ATTR_LEVEL_MIN_LEVEL;
-    }
-    else
-    {
-      newLevel = zclSampleLight_getCurrentLevelAttribute() - pCmd->amount;
-    }
-  }
-
-  zclSampleLight_LevelChangeCmd = LEVEL_CHANGED_BY_LEVEL_CMD;
-
-  // move to the new level
-  zclSampleLight_WithOnOff = pCmd->withOnOff;
-  zclSampleLight_MoveBasedOnTime( newLevel, pCmd->transitionTime );
-}
-
-/*********************************************************************
- * @fn      zclSampleLight_LevelControlStopCB
- *
- * @brief   Callback from the ZCL General Cluster Library when
- *          it received an Level Control Stop Command for this application.
- *
- * @param   pCmd - ZigBee command parameters
- *
- * @return  none
- */
-static void zclSampleLight_LevelControlStopCB( zclLCStop_t *pCmd )
-{
-  // TODO: process pCmd
-
-  // stop immediately
-  if(UtilTimer_isActive(&LevelControlClkStruct) == true)
-  {
-      UtilTimer_stop(&LevelControlClkStruct);
-  }
-
-  zclSampleLight_LevelRemainingTime = 0;
-}
-
-/*********************************************************************
- * @fn      zclSampleLight_LevelControlMoveToClosestFrequencyCB
- *
- * @brief   Callback from the ZCL General Cluster Library when
- *          it received an Level Control Move To
- *          Closest Frequency Command for this application.
- *
- * @param   pCmd - ZigBee command parameters
- *
- * @return  none
- */
-static void zclSampleLight_LevelControlMoveToClosestFrequencyCB( zclLCMoveFreq_t *pCmd )
-{
-  // TODO
-}
 #endif
 
 /******************************************************************************
