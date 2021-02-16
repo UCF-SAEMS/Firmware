@@ -147,6 +147,13 @@ extern "C" {
 #include <ti/display/DisplayExt.h>
 #include <ti/display/AnsiColor.h>
 #include "stdio.h"
+#include "stdint.h"
+#include "stdbool.h"
+#include "stddef.h"
+
+// Import ADC Driver definitions
+#include <ti/drivers/ADC.h>
+
 
 // Hardware includes
 #include "myconfig.h"
@@ -158,6 +165,13 @@ extern "C" {
 #include "lib/BME280/bme280.h"
 #include "lib/BME280/bme280_defs.h"
 #include "lib/BME280/bme280_if.h"
+
+
+
+#include "lib/LMP91000/lmp91000.h"
+//#include <lib/LMP91000/lmp91000.cpp>
+//#include "lib/LMP91000/lmp91000_if.h"
+
 
 /*********************************************************************
  * MACROS
@@ -565,6 +579,76 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   i2cParams.bitRate = I2C_100kHz;
   i2c = I2C_open(CONFIG_I2C_0, &i2cParams);
 
+  // One-time init of ADC driver
+  ADC_init();
+
+  // initialize optional ADC parameters
+  ADC_Params ADCparams;
+  ADC_Params_init(&ADCparams);
+  ADCparams.isProtected = true;
+
+  ADC_Handle adc = ADC_open(CO_OUT, &ADCparams);
+
+
+  //ADC for DIO 23 for CO sensor working
+  for(;;){
+
+      /* ADC conversion result variables */
+      uint16_t adcValue0;
+      uint32_t adcValue;
+      int_fast16_t res;
+
+
+
+       /* Blocking mode conversion */
+       res = ADC_convert(adc, &adcValue0);
+
+          if (res == ADC_STATUS_SUCCESS) {
+
+              adcValue = ADC_convertToMicroVolts(adc, adcValue0);
+
+             printf("CONFIG_ADC_0 raw result: %d\n", adcValue0);
+             printf("CONFIG_ADC_0 convert result: %d V\n", adcValue);
+          }
+          else {
+              printf("CONFIG_ADC_0 convert failed\n");
+          }
+
+          Task_sleep(2000 * (1000 / Clock_tickPeriod));
+
+  }
+
+
+  //I2C comm for CO sensor
+  for(;;){
+
+
+
+      Task_sleep(2000 * (1000 / Clock_tickPeriod));
+
+
+      uint8_t rxBuffer[4]={LMP91000_MODECN_REG, 0x03, 0};
+      uint8_t txBuffer[3]={LMP91000_MODECN_REG, 0x03};
+
+
+      //slave address
+      i2cTransaction.slaveAddress = LMP91000_I2C_ADDRESS;
+
+
+      txBuffer[0]=LMP91000_MODECN_REG;
+
+      //read
+            i2cTransaction.writeCount = 1;
+            i2cTransaction.writeBuf = txBuffer;
+            i2cTransaction.readCount = 1;
+            i2cTransaction.readBuf = rxBuffer;
+            I2C_transfer(i2c, &i2cTransaction);
+
+      Task_sleep(2000 * (1000 / Clock_tickPeriod));
+
+      printf("value status %x and value tx %x \n", rxBuffer[0], txBuffer[0]);
+  }
+
   struct bme280_data bme_data;
   struct bme280_dev bme_dev;
 
@@ -572,10 +656,11 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   bme_data = { 0 };
 
   bme280_if_init(&bme_dev, &i2c);
-  char buffer[500];
 
+char buffer[500];
   for (;;)
   {
+
     bme280_if_get_all_sensor_data(&bme_data, &bme_dev);
 
     float temp, press, hum;

@@ -12,6 +12,8 @@ const CCFG     = scripting.addModule("/ti/devices/CCFG");
 const rfdesign = scripting.addModule("/ti/devices/radioconfig/rfdesign");
 const Display  = scripting.addModule("/ti/display/Display", {}, false);
 const Display1 = Display.addInstance();
+const ADC      = scripting.addModule("/ti/drivers/ADC", {}, false);
+const ADC1     = ADC.addInstance();
 const AESCBC   = scripting.addModule("/ti/drivers/AESCBC");
 const AESCBC1  = AESCBC.addInstance();
 const AESCCM   = scripting.addModule("/ti/drivers/AESCCM");
@@ -63,6 +65,12 @@ Display1.uart.rxPinInstance.$name = "CONFIG_PIN_6";
 scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to XDS110 UART on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",Display1.uart.uart.txPin);
 scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to XDS110 UART on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",Display1.uart.uart.rxPin);
 
+ADC1.$name                = "CO_OUT";
+ADC1.adjustSampleValue    = true;
+ADC1.adc.$assign          = "ADC0";
+ADC1.adc.adcPin.$assign   = "boosterpack.2";
+ADC1.adcPinInstance.$name = "CONFIG_PIN_7";
+
 AESCBC1.$name = "CONFIG_AESCBC_0";
 
 AESCCM1.$name             = "CONFIG_AESCCM_0";
@@ -90,9 +98,9 @@ NVS1.internalFlash.regionBase = 0x52000;
 NVS1.internalFlash.regionSize = 0x4000;
 
 RF.$hardware             = system.deviceData.board.components["SKY13317-373LF"];
-RF.rfAntennaPin0.$assign = "DIO_28";
-RF.rfAntennaPin1.$assign = "DIO_29";
-RF.rfAntennaPin2.$assign = "DIO_30";
+RF.rfAntennaPin0.$assign = "41";
+RF.rfAntennaPin1.$assign = "42";
+RF.rfAntennaPin2.$assign = "43";
 
 SHA21.$name = "CONFIG_SHA2_0";
 
@@ -129,8 +137,8 @@ zstack.advanced.tableSize.$name              = "ti_zstack_advanced_zstack_table_
  * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
  * re-solve from scratch.
  */
-Display1.uart.uart.$suggestSolution                   = "UART0";
-I2C1.i2c.$suggestSolution                             = "I2C0";
-SPI1.spi.$suggestSolution                             = "SSI0";
-SPI1.spi.dmaRxChannel.$suggestSolution                = "DMA_CH3";
-SPI1.spi.dmaTxChannel.$suggestSolution                = "DMA_CH4";
+Display1.uart.uart.$suggestSolution    = "UART1";
+I2C1.i2c.$suggestSolution              = "I2C0";
+SPI1.spi.$suggestSolution              = "SSI0";
+SPI1.spi.dmaRxChannel.$suggestSolution = "DMA_CH3";
+SPI1.spi.dmaTxChannel.$suggestSolution = "DMA_CH4";
