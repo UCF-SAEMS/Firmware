@@ -225,10 +225,6 @@ static endPointDesc_t  zclSampleLightEpDesc = {0};
 static Clock_Handle EndDeviceRejoinClkHandle;
 static Clock_Struct EndDeviceRejoinClkStruct;
 #endif
-#ifdef ZCL_LEVEL_CTRL
-static Clock_Handle LevelControlClkHandle;
-static Clock_Struct LevelControlClkStruct;
-#endif
 
 static Clock_Handle DiscoveryClkHandle;
 static Clock_Struct DiscoveryClkStruct;
@@ -250,12 +246,7 @@ static uint16_t zclSampleLight_BdbCommissioningModes;
 afAddrType_t zclSampleLight_DstAddr;
 
 #ifdef ZCL_LEVEL_CTRL
-uint8_t zclSampleLight_WithOnOff;       // set to TRUE if state machine should set light on/off
-uint8_t zclSampleLight_NewLevel;        // new level when done moving
 uint8_t zclSampleLight_LevelChangeCmd; // current level change was triggered by an on/off command
-bool  zclSampleLight_NewLevelUp;      // is direction to new level up or down?
-int32_t zclSampleLight_CurrentLevel32;  // current level, fixed point (e.g. 192.456)
-int32_t zclSampleLight_Rate32;          // rate in units, fixed point (e.g. 16.123)
 uint8_t zclSampleLight_LevelLastLevel;  // to save the Current Level before the light was turned OFF
 #endif
 
@@ -332,7 +323,7 @@ static void zclSampleLight_UpdateStatusLine(void);
 #endif
 static uint8_t zclSampleLight_SceneStoreCB(zclSceneReq_t *pReq);
 static void  zclSampleLight_SceneRecallCB(zclSceneReq_t *pReq);
-static void  zclSampleLight_OnOffCB( uint8_t cmd );
+static void  SAEMS_OnOffCB( uint8_t cmd );
 ZStatus_t zclSampleLight_ReadWriteAttrCB( uint16_t clusterId, uint16_t attrId, uint8_t oper,
                                           uint8_t *pValue, uint16_t *pLen );
 
@@ -341,12 +332,7 @@ static void zclSampleLight_ProcessCommissioningStatus(bdbCommissioningModeMsg_t 
 
 
 #ifdef ZCL_LEVEL_CTRL
-static void zclSampleLight_LevelControlMoveToLevelCB( zclLCMoveToLevel_t *pCmd );
-static uint32_t zclSampleLight_TimeRateHelper( uint8_t newLevel );
-static uint16_t zclSampleLight_GetTime ( uint8_t level, uint16_t time );
-static void zclSampleLight_MoveBasedOnRate( uint8_t newLevel, uint32_t rate );
-static void zclSampleLight_MoveBasedOnTime( uint8_t newLevel, uint16_t time );
-static void zclSampleLight_AdjustLightLevel( void );
+static void SAEMS_LevelControlMoveToLevelCB( zclLCMoveToLevel_t *pCmd );
 #endif
 
 // Functions to process ZCL Foundation incoming Command/Response messages
@@ -362,10 +348,6 @@ static uint8_t zclSampleLight_ProcessInDefaultRspCmd( zclIncoming_t *pInMsg );
 static uint8_t zclSampleLight_ProcessInDiscCmdsRspCmd( zclIncoming_t *pInMsg );
 static uint8_t zclSampleLight_ProcessInDiscAttrsRspCmd( zclIncoming_t *pInMsg );
 static uint8_t zclSampleLight_ProcessInDiscAttrsExtRspCmd( zclIncoming_t *pInMsg );
-#endif
-
-#ifdef ZCL_LEVEL_CTRL
-static void zclSampleLight_processLevelControlTimeoutCallback(UArg a0);
 #endif
 
 #if defined (ENABLE_GREENPOWER_COMBO_BASIC)
@@ -447,13 +429,13 @@ static zclGeneral_AppCallbacks_t zclSampleLight_CmdCallbacks =
   zclSampleLight_IdentifyQueryRspCB,      // Identify Query Response command
   NULL,                                   // Identify Trigger Effect command
 #ifdef ZCL_ON_OFF
-  zclSampleLight_OnOffCB,                 // On/Off cluster commands
+  SAEMS_OnOffCB,                           // On/Off cluster commands
   NULL,                                   // On/Off cluster enhanced command Off with Effect
   NULL,                                   // On/Off cluster enhanced command On with Recall Global Scene
   NULL,                                   // On/Off cluster enhanced command On with Timed Off
 #endif
 #ifdef ZCL_LEVEL_CTRL
-  zclSampleLight_LevelControlMoveToLevelCB,             // Level Control Move to Level command
+  SAEMS_LevelControlMoveToLevelCB,                      // Level Control Move to Level command
   NULL,                                                 // Level Control Move command
   NULL,                                                 // Level Control Step command
   NULL,                                                 // Level Control Stop command
@@ -618,6 +600,91 @@ ZStatus_t SAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturatio
 }
 #endif // ZCL_LIGHTING
 
+/*********************************************************************
+ * @fn      SAEMS_OnOffCB
+ *
+ * @brief   Callback from the ZCL General Cluster Library when
+ *          it received an On/Off Command for this application.
+ *
+ * @param   cmd - COMMAND_ON_OFF_ON, COMMAND_ON_OFF_OFF or COMMAND_ON_OFF_TOGGLE
+ *
+ * @return  none
+ */
+static void SAEMS_OnOffCB( uint8_t cmd )
+{
+  afIncomingMSGPacket_t *pPtr = zcl_getRawAFMsg();
+
+  uint8_t OnOff = 0xFE; // initialize to invalid
+  uint8_t LightLevel = 0xFE;
+  float OnOff_Intensity = 0.00;
+
+  zclSampleLight_DstAddr.addr.shortAddr = pPtr->srcAddr.addr.shortAddr;
+
+  // Turn on the light
+  if ( cmd == COMMAND_ON_OFF_ON )
+  {
+    OnOff = LIGHT_ON;
+    printf("LIGHT IS TURNING ON!!!\n");
+  }
+  // Turn off the light
+  else if ( cmd == COMMAND_ON_OFF_OFF )
+  {
+    OnOff = LIGHT_OFF;
+    printf("LIGHT IS TURNING OFF!!!\n");
+  }
+
+
+  if( ((zclSampleLight_getOnOffAttribute() == LIGHT_ON) && (OnOff == LIGHT_ON)) ||
+      ((zclSampleLight_getOnOffAttribute() == LIGHT_OFF) && (OnOff == LIGHT_OFF)) )
+  {
+    // if light is on and received an on command, ignore it.
+    // if light is off and received an off command, ignore it.
+    return;
+  }
+
+  if(zclSampleLight_getCurrentLevelAttribute() > 0)
+    LightLevel = 0;
+  else if(zclSampleLight_getCurrentLevelAttribute() == 0)
+    LightLevel = 50;
+
+zclSampleLight_updateCurrentLevelAttribute(LightLevel);
+zclSampleLight_updateOnOffAttribute(OnOff);
+
+OnOff_Intensity = LightLevel / 100.0;
+ledboard.hsi(SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation, OnOff_Intensity);
+
+}
+
+#ifdef ZCL_LEVEL_CTRL
+/*********************************************************************
+ * @fn      SAEMS_LevelControlMoveToLevelCB
+ *
+ * @brief   Callback from the ZCL General Cluster Library when
+ *          it received a LevelControlMoveToLevel Command for this application.
+ *
+ * @param   pCmd - ZigBee command parameters
+ *
+ * @return  none
+ */
+static void SAEMS_LevelControlMoveToLevelCB( zclLCMoveToLevel_t *pCmd )
+{
+  uint8_t newLevel = pCmd->level;
+  printf("CHANGING THE LIGHT LEVEL TO %u%%!!!\n", (unsigned int)newLevel);
+  float new_intensity = 0.00;
+
+  if(newLevel == 0)
+    zclSampleLight_updateOnOffAttribute(LIGHT_OFF);
+  else if(newLevel > 0)
+    zclSampleLight_updateOnOffAttribute(LIGHT_ON);
+
+  zclSampleLight_updateCurrentLevelAttribute(newLevel);
+
+  new_intensity = newLevel / 100.0;
+  ledboard.hsi(SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation, new_intensity);
+
+}
+#endif
+
 /*************************************************************************
  * @fn      SAEMS_SensorsCallback
  *
@@ -760,7 +827,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   led.set(RGB_States::RED | RGB_States::GREEN);
 
   ledboard.init();
-  ledboard.hsi(SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation, 0.5);
+  ledboard.hsi(SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation, ( (float)zclSampleLight_getCurrentLevelAttribute() )/100.0 );
 
   // No return from task process
   zclSampleLight_process_loop();
@@ -1087,13 +1154,6 @@ static void zclSampleLight_initializeClocks(void)
     SAMPLEAPP_END_DEVICE_REJOIN_DELAY,
     0, false, 0);
 #endif
-#ifdef ZCL_LEVEL_CTRL
-    LevelControlClkHandle = UtilTimer_construct(
-    &LevelControlClkStruct,
-    zclSampleLight_processLevelControlTimeoutCallback,
-    100,
-    0, false, 0);
-#endif
 #if defined(USE_DMM) && defined(BLE_START)
     // Clock for synchronizing application configuration parameters for BLE
     UtilTimer_construct(
@@ -1314,14 +1374,6 @@ static void zclSampleLight_process_loop(void)
                 appServiceTaskEvents &= ~SAMPLEAPP_SYNC_ATTR_EVT;
             }
 #endif // defined(USE_DMM) && defined(BLE_START)
-
-#ifdef ZCL_LEVEL_CTRL
-            if(appServiceTaskEvents & SAMPLELIGHT_LEVEL_CTRL_EVT)
-            {
-                zclSampleLight_AdjustLightLevel();
-                appServiceTaskEvents &= ~SAMPLELIGHT_LEVEL_CTRL_EVT;
-            }
-#endif // ZCL_LEVEL_CTRL
 
 #if !defined (DISABLE_GREENPOWER_BASIC_PROXY) && (ZG_BUILD_RTR_TYPE)
             if(appServiceTaskEvents & SAMPLEAPP_PROCESS_GP_DATA_SEND_EVT)
@@ -1549,11 +1601,11 @@ static void setLightAttrCb(RemoteDisplayLightAttr_t lightAttr,
 #ifndef Z_POWER_TEST
             if(*((uint8_t*)value) == 0)
             {
-                zclSampleLight_OnOffCB(COMMAND_ON_OFF_OFF);
+                SAEMS_OnOffCB(COMMAND_ON_OFF_OFF);
             }
             else
             {
-                zclSampleLight_OnOffCB(COMMAND_ON_OFF_ON);
+                SAEMS_OnOffCB(COMMAND_ON_OFF_ON);
             }
 #endif
             break;
@@ -2083,319 +2135,6 @@ static void zclSampleLight_BasicResetCB( void )
 #endif
 }
 
-/*********************************************************************
- * @fn      zclSampleLight_OnOffCB
- *
- * @brief   Callback from the ZCL General Cluster Library when
- *          it received an On/Off Command for this application.
- *
- * @param   cmd - COMMAND_ON_OFF_ON, COMMAND_ON_OFF_OFF or COMMAND_ON_OFF_TOGGLE
- *
- * @return  none
- */
-static void zclSampleLight_OnOffCB( uint8_t cmd )
-{
-  afIncomingMSGPacket_t *pPtr = zcl_getRawAFMsg();
-
-  uint8_t OnOff = 0xFE; // initialize to invalid
-  uint8_t LightLevel = 0xFE;
-  float OnOff_Intensity = 0.00;
-
-  zclSampleLight_DstAddr.addr.shortAddr = pPtr->srcAddr.addr.shortAddr;
-
-  // Turn on the light
-  if ( cmd == COMMAND_ON_OFF_ON )
-  {
-    OnOff = LIGHT_ON;
-    printf("LIGHT IS TURNING ON!!!\n");
-  }
-  // Turn off the light
-  else if ( cmd == COMMAND_ON_OFF_OFF )
-  {
-    OnOff = LIGHT_OFF;
-    printf("LIGHT IS TURNING OFF!!!\n");
-  }
-
-
-  if( ((zclSampleLight_getOnOffAttribute() == LIGHT_ON) && (OnOff == LIGHT_ON)) ||
-      ((zclSampleLight_getOnOffAttribute() == LIGHT_OFF) && (OnOff == LIGHT_OFF)) )
-  {
-    // if light is on and received an on command, ignore it.
-    // if light is off and received an off command, ignore it.
-    return;
-  }
-
-  if(zclSampleLight_getCurrentLevelAttribute() > 0)
-    LightLevel = 0;
-  else if(zclSampleLight_getCurrentLevelAttribute() == 0)
-    LightLevel = 50;
-
-zclSampleLight_updateCurrentLevelAttribute(LightLevel);
-zclSampleLight_updateOnOffAttribute(OnOff);
-
-OnOff_Intensity = LightLevel / 100.0;
-ledboard.hsi(SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation, OnOff_Intensity);
-
-}
-
-#ifdef ZCL_LEVEL_CTRL
-
-/*******************************************************************************
- * @fn      zclSampleLight_processLevelControlTimeoutCallback
- *
- * @brief   Timeout handler function
- *
- * @param   a0 - ignored
- *
- * @return  none
- */
-static void zclSampleLight_processLevelControlTimeoutCallback(UArg a0)
-{
-    (void)a0; // Parameter is not used
-
-    appServiceTaskEvents |= SAMPLELIGHT_LEVEL_CTRL_EVT;
-
-    // Wake up the application thread when it waits for clock event
-    Semaphore_post(appSemHandle);
-}
-
-
-/*********************************************************************
- * @fn      zclSampleLight_TimeRateHelper
- *
- * @brief   Calculate time based on rate, and startup level state machine
- *
- * @param   newLevel - new level for current level
- *
- * @return  diff (directly), zclSampleLight_CurrentLevel32 and zclSampleLight_NewLevel, zclSampleLight_NewLevelUp
- */
-static uint32_t zclSampleLight_TimeRateHelper( uint8_t newLevel )
-{
-  uint32_t diff;
-  uint32_t newLevel32;
-
-  // remember current and new level
-  zclSampleLight_NewLevel = newLevel;
-  zclSampleLight_CurrentLevel32 = (uint32_t)1000 * zclSampleLight_getCurrentLevelAttribute();
-
-  // calculate diff
-  newLevel32 = (uint32_t)1000 * newLevel;
-  if ( zclSampleLight_getCurrentLevelAttribute() > newLevel )
-  {
-    diff = zclSampleLight_CurrentLevel32 - newLevel32;
-    zclSampleLight_NewLevelUp = FALSE;  // moving down
-  }
-  else
-  {
-    diff = newLevel32 - zclSampleLight_CurrentLevel32;
-    zclSampleLight_NewLevelUp = TRUE;   // moving up
-  }
-
-  return ( diff );
-}
-
-/*********************************************************************
- * @fn      zclSampleLight_MoveBasedOnRate
- *
- * @brief   Calculate time based on rate, and startup level state machine
- *
- * @param   newLevel - new level for current level
- * @param   rate16   - fixed point rate (e.g. 16.123)
- *
- * @return  none
- */
-static void zclSampleLight_MoveBasedOnRate( uint8_t newLevel, uint32_t rate )
-{
-  uint32_t diff;
-
-  // determine how much time (in 10ths of seconds) based on the difference and rate
-  zclSampleLight_Rate32 = rate;
-  diff = zclSampleLight_TimeRateHelper( newLevel );
-  zclSampleLight_LevelRemainingTime = diff / rate;
-  if ( !zclSampleLight_LevelRemainingTime )
-  {
-    zclSampleLight_LevelRemainingTime = 1;
-  }
-
-  UtilTimer_setTimeout( LevelControlClkHandle, 100 );
-  UtilTimer_start(&LevelControlClkStruct);
-
-}
-
-/*********************************************************************
- * @fn      zclSampleLight_MoveBasedOnTime
- *
- * @brief   Calculate rate based on time, and startup level state machine
- *
- * @param   newLevel  - new level for current level
- * @param   time      - in 10ths of seconds
- *
- * @return  none
- */
-static void zclSampleLight_MoveBasedOnTime( uint8_t newLevel, uint16_t time )
-{
-  uint16_t diff;
-
-  // determine rate (in units) based on difference and time
-  diff = zclSampleLight_TimeRateHelper( newLevel );
-  zclSampleLight_LevelRemainingTime = zclSampleLight_GetTime( newLevel, time );
-  zclSampleLight_Rate32 = diff / time;
-
-  UtilTimer_setTimeout( LevelControlClkHandle, 100 );
-  UtilTimer_start(&LevelControlClkStruct);
-}
-
-/*********************************************************************
- * @fn      zclSampleLight_GetTime
- *
- * @brief   Determine amount of time that MoveXXX will take to complete.
- *
- * @param   level = new level to move to
- *          time  = 0xffff=default, or 0x0000-n amount of time in tenths of seconds.
- *
- * @return  none
- */
-static uint16_t zclSampleLight_GetTime( uint8_t newLevel, uint16_t time )
-{
-  // there is a hierarchy of the amount of time to use for transitioning
-  // check each one in turn. If none of defaults are set, then use fastest
-  // time possible.
-  if ( time == 0xFFFF )
-  {
-    // use On or Off Transition Time if set (not 0xffff)
-    if ( zclSampleLight_getCurrentLevelAttribute() > newLevel )
-    {
-      time = zclSampleLight_LevelOffTransitionTime;
-    }
-    else
-    {
-      time = zclSampleLight_LevelOnTransitionTime;
-    }
-
-    // else use OnOffTransitionTime if set (not 0xffff)
-    if ( time == 0xFFFF )
-    {
-      time = zclSampleLight_LevelOnOffTransitionTime;
-    }
-
-    // else as fast as possible
-    if ( time == 0xFFFF )
-    {
-      time = 1;
-    }
-  }
-
-  if ( time == 0 )
-  {
-    time = 1; // as fast as possible
-  }
-
-  return ( time );
-}
-
-/*********************************************************************
- * @fn      zclSampleLight_AdjustLightLevel
- *
- * @brief   Called each 10th of a second while state machine running
- *
- * @param   none
- *
- * @return  none
- */
-static void zclSampleLight_AdjustLightLevel( void )
-{
-  // one tick (10th of a second) less
-  if ( zclSampleLight_LevelRemainingTime )
-  {
-    --zclSampleLight_LevelRemainingTime;
-  }
-
-  // no time left, done
-  if ( zclSampleLight_LevelRemainingTime == 0)
-  {
-      zclSampleLight_updateCurrentLevelAttribute(zclSampleLight_NewLevel);
-  }
-
-  // still time left, keep increment/decrementing
-  else
-  {
-    if ( zclSampleLight_NewLevelUp )
-    {
-      zclSampleLight_CurrentLevel32 += zclSampleLight_Rate32;
-    }
-    else
-    {
-      zclSampleLight_CurrentLevel32 -= zclSampleLight_Rate32;
-    }
-
-    zclSampleLight_updateCurrentLevelAttribute( zclSampleLight_CurrentLevel32 / 1000 );
-
-  }
-
-  if (( zclSampleLight_LevelChangeCmd == LEVEL_CHANGED_BY_LEVEL_CMD ) && ( zclSampleLight_LevelOnLevel == ATTR_LEVEL_ON_LEVEL_NO_EFFECT ))
-  {
-    zclSampleLight_LevelLastLevel = zclSampleLight_getCurrentLevelAttribute();
-  }
-
-  // also affect on/off
-  if ( zclSampleLight_WithOnOff )
-  {
-    uint8_t OnOffTempState;
-    if ( zclSampleLight_getCurrentLevelAttribute() > ATTR_LEVEL_MIN_LEVEL )
-    {
-      OnOffTempState = LIGHT_ON;
-    }
-    else
-    {
-      if (zclSampleLight_LevelChangeCmd != LEVEL_CHANGED_BY_ON_CMD)
-      {
-        OnOffTempState = LIGHT_OFF;
-      }
-      else
-      {
-        OnOffTempState = LIGHT_ON;
-      }
-
-      if (( zclSampleLight_LevelChangeCmd != LEVEL_CHANGED_BY_LEVEL_CMD ) && ( zclSampleLight_LevelOnLevel == ATTR_LEVEL_ON_LEVEL_NO_EFFECT ))
-      {
-          zclSampleLight_updateCurrentLevelAttribute(zclSampleLight_LevelLastLevel);
-      }
-    }
-    zclSampleLight_updateOnOffAttribute(OnOffTempState);
-  }
-
-#ifndef CUI_DISABLE
-  zclSampleLight_UpdateStatusLine();
-#endif
-
-  // keep ticking away
-  if ( zclSampleLight_LevelRemainingTime )
-  {
-      UtilTimer_setTimeout( LevelControlClkHandle, 100 );
-      UtilTimer_start(&LevelControlClkStruct);
-  }
-}
-
-/*********************************************************************
- * @fn      zclSampleLight_LevelControlMoveToLevelCB
- *
- * @brief   Callback from the ZCL General Cluster Library when
- *          it received a LevelControlMoveToLevel Command for this application.
- *
- * @param   pCmd - ZigBee command parameters
- *
- * @return  none
- */
-static void zclSampleLight_LevelControlMoveToLevelCB( zclLCMoveToLevel_t *pCmd )
-{
-  zclSampleLight_LevelChangeCmd = LEVEL_CHANGED_BY_LEVEL_CMD;
-
-  zclSampleLight_WithOnOff = pCmd->withOnOff;
-  zclSampleLight_MoveBasedOnTime( pCmd->level, pCmd->transitionTime );
-}
-
-#endif
-
 /******************************************************************************
  *
  *  Functions for processing ZCL Foundation incoming Command/Response messages
@@ -2774,7 +2513,7 @@ static uint8_t zclSampleLight_ProcessInDiscAttrsExtRspCmd( zclIncoming_t *pInMsg
 
 void zclSampleLight_UiActionToggleLight(const int32_t _itemEntry)
 {
-  zclSampleLight_OnOffCB(COMMAND_ON_OFF_TOGGLE);
+  SAEMS_OnOffCB(COMMAND_ON_OFF_TOGGLE);
 }
 
 
@@ -2850,43 +2589,6 @@ static void zclSampleLight_dmmPausePolicyCb(uint16_t pause)
 }
 #endif
 
-
-static void zclSampleLight_InitializeStatusLine(CUI_clientHandle_t gCuiHandle)
-{
-    /* Request Async Line for Light application Info */
-    CUI_statusLineResourceRequest(gCuiHandle, "   APP Info"CUI_DEBUG_MSG_START"1"CUI_DEBUG_MSG_END, false, &gSampleLightInfoLine);
-
-    zclSampleLight_UpdateStatusLine();
-}
-
-
-static void zclSampleLight_UpdateStatusLine(void)
-{
-
-    char lineFormat[MAX_STATUS_LINE_VALUE_LEN] = {'\0'};
-
-
-    strcpy(lineFormat, "["CUI_COLOR_YELLOW"Light State"CUI_COLOR_RESET"]");
-    // set the LED1 based on light (on or off)
-    if ( LIGHT_ON == zclSampleLight_getOnOffAttribute())
-    {
-        strcat(lineFormat, CUI_COLOR_GREEN" On "CUI_COLOR_RESET);
-    }
-    else
-    {
-        strcat(lineFormat, CUI_COLOR_RED" Off"CUI_COLOR_RESET);
-    }
-#ifdef ZCL_LEVEL_CTRL
-    strcat(lineFormat, " ["CUI_COLOR_YELLOW"Level"CUI_COLOR_RESET"] %03d");
-    CUI_statusLinePrintf(gCuiHandle, gSampleLightInfoLine, lineFormat, zclSampleLight_getCurrentLevelAttribute());
-#else
-    CUI_statusLinePrintf(gCuiHandle, gSampleLightInfoLine, lineFormat);
-#endif
-}
-
-
-
-
 #if defined (ENABLE_GREENPOWER_COMBO_BASIC)
 
 void zclSampleLight_setGPSinkCommissioningMode(const int32_t _itemEntry)
@@ -2937,7 +2639,7 @@ static void zclSampleLight_GPSink_Identify(zclGpNotification_t *zclGpNotificatio
  */
 static void zclSampleLight_GPSink_Off(zclGpNotification_t *zclGpNotification)
 {
-  zclSampleLight_OnOffCB(COMMAND_ON_OFF_OFF);
+  SAEMS_OnOffCB(COMMAND_ON_OFF_OFF);
 }
 
 /*********************************************************************
@@ -2951,7 +2653,7 @@ static void zclSampleLight_GPSink_Off(zclGpNotification_t *zclGpNotification)
  */
 static void zclSampleLight_GPSink_On(zclGpNotification_t *zclGpNotification)
 {
-  zclSampleLight_OnOffCB(COMMAND_ON_OFF_ON);
+  SAEMS_OnOffCB(COMMAND_ON_OFF_ON);
 }
 
 /*********************************************************************
@@ -2965,7 +2667,7 @@ static void zclSampleLight_GPSink_On(zclGpNotification_t *zclGpNotification)
  */
 static void zclSampleLight_GPSink_Toggle(zclGpNotification_t *zclGpNotification)
 {
-  zclSampleLight_OnOffCB(COMMAND_ON_OFF_TOGGLE);
+  SAEMS_OnOffCB(COMMAND_ON_OFF_TOGGLE);
 }
 #endif
 
