@@ -55,10 +55,13 @@
 
  */
 
-
+#include <ti/drivers/ADC.h>
 #include <ti/sysbios/knl/Clock.h>
 #include <ti/sysbios/knl/Task.h>
 #include "lmp91000.h"
+#include "ti_drivers_config.h"
+
+//#define CO_OUT 0
 
 
 /************CONSTRUCTORS*****************/
@@ -470,7 +473,7 @@ void LMP91000::setMode(uint8_t mode)
     else if (mode == 2) standby();
     else if (mode == 3) setThreeLead();
     else if (mode == 4) measureCell();
-    else if (mode == 5) getTemp();
+    else if (mode == 5) setTemp();
     else {}; //some error
 }
 
@@ -543,9 +546,10 @@ void LMP91000::measureCell()
 }
 
 //void LMP91000::getTemp() const
-void LMP91000::getTemp()
+void LMP91000::setTemp()
 {
     uint8_t data = read(LMP91000_MODECN_REG);
+    data &= ~(0x07); //clears the first three bits
     data |= (0x07);
     write(LMP91000_MODECN_REG, data);
 }
@@ -557,118 +561,50 @@ void LMP91000::getTemp()
 //Measures temperature by setting bits 0, 1, and 2 of the Mode Control Register
 //to 1. This sets the transimpedance amplifier of the LMP91000 ON and sends
 //the output of the internal temperature sensor to the VOUT pin of the LMP91000.
-double LMP91000::getTemp(uint8_t sensor, double adc_ref, uint8_t adc_bits)
+uint32_t LMP91000::getTemp(ADC_Handle adc)
 {
     uint8_t data = read(LMP91000_MODECN_REG);
+    data &= ~(0x07); //clears the first three bits
     data |= (0x07);
     write(LMP91000_MODECN_REG, data);
 
-    Task_sleep(2000 * (1000 / Clock_tickPeriod));
-
-    return (getVoltage(sensor, adc_ref, adc_bits)-TEMP_INTERCEPT)/TEMPSLOPE;
+    return getADC(adc);
 }
 
+//This method calculates the current at the working electrode by reading in the
+//voltage at the output of LMP91000 and dividing by the value of the external
+//gain resistor.
+uint32_t LMP91000::getCurrentExtern(ADC_Handle adc, uint8_t extGain)
+{
+    return (getADC(adc)/extGain);
+}
 
-//uint16_t MiniStat::getOutput(uint8_t sensor) const
-//
-//@param            sensor: the analog in pin of the LMP91000 is connected to
-//
-//@return           the voltage output of the LMP91000 in bits
-//
-//Uses analogRead() return the output of the LMP91000.
-//uint16_t LMP91000::getOutput(uint8_t sensor)
-//{
-//    return analogRead(sensor);
-//}
+//This method calculates the current at the working electrode by reading in the
+//voltage at the output of LMP91000 and dividing by the value of the gain resistor.
+uint32_t LMP91000::getCurrent(ADC_Handle adc)
+{
+    return (getADC(adc)/(TIA_GAIN[gain-1]));
+}
 
-
-//double MiniStat::getVoltage(uint8_t sensor, double adc_ref, uint8_t adc_bits) const
-//{
-//    return (analogRead(sensor)*adc_ref)/(pow(10,adc_bits)-1);
-//}
-//
-//
-//double MiniStat::getCurrent(uint8_t sensor, double adc_ref, uint8_t adc_bits) const
-//{
-//    return (getVoltage(sensor, adc_ref, adc_bits) - (adc_ref/TIA_ZERO[zero]))/TIA_GAIN[gain-1];
-//}
-//
-//
-//
-//double MiniStat::getCurrent(uint8_t sensor, double adc_ref, uint8_t adc_bits, double extGain) const
-//{
-//    return (getVoltage(sensor, adc_ref, adc_bits) - (adc_ref/TIA_ZERO[zero]))/extGain;
-//}
+//This returns the ADC value from the output of the LMP91000
+uint32_t LMP91000::getADC(ADC_Handle adc)
+{
+    uint16_t adcValue0;
+    uint32_t adcValue;
+    int_fast16_t res;
 
 
+       /* Blocking mode conversion */
+    res = ADC_convert(adc, &adcValue0);
 
-//double MiniStat::getVoltage(uint16_t adcVal, double adc_ref, uint8_t adc_bits) const
-//
-//@param            adcVal: value returned by the analog-to-digital converter of
-//                          the microcontroller used to control the LMP91000
-//
-//@param            adc_ref: voltage reference of the analog-to-digtal converter
-//                          of the microcontroller
-//
-//@param            adc_bits: number of bits of the analog-to-digital converter
-//                          of the microcontroller
-//
-//@return           the voltage output of the LMP91000
-//
-//This method calculates the voltage at the output of the LMP91000 by multiplying
-//by the refernece voltage of the analog-to-digital converter and dividing by
-//the bit resolution of the analog-to-digital converter.
-//double LMP91000::getVoltage(uint16_t adcVal, double adc_ref, uint8_t adc_bits)
-//{
-//    return (adcVal*adc_ref)/(pow(2,adc_bits)-1);
-//}
-//
-//
-////double MiniStat::getCurrent(uint16_t adcVal, double adc_ref, uint8_t adc_bits) const
-////
-////@param            adcVal: value returned by the analog-to-digital converter of
-////                          the microcontroller used to control the LMP91000
-////
-////@param            adc_ref: voltage reference of the analog-to-digtal converter
-////                          of the microcontroller
-////
-////@param            adc_bits: number of bits of the analog-to-digital converter
-////                          of the microcontroller
-////
-////@return           the current at the working electrode
-////
-////This method calculates the current at the working electrode by reading in the
-////voltage at the output of LMP91000 and dividing by the value of the gain resistor.
-//double LMP91000::getCurrent(uint16_t adcVal, double adc_ref, uint8_t adc_bits)
-//{
-//    return (getVoltage(adcVal, adc_ref, adc_bits) - (adc_ref*TIA_ZERO[zero]))/TIA_GAIN[gain-1];
-//}
-//
-//
-////double MiniStat::getCurrent(uint16_t adcVal, double adc_ref, uint8_t adc_bits,
-////                              double extGain) const
-////
-////@param            adcVal: value returned by the analog-to-digital converter of
-////                          the microcontroller used to control the LMP91000
-////
-////@param            adc_ref: voltage reference of the analog-to-digtal converter
-////                          of the microcontroller
-////
-////@param            adc_bits: number of bits of the analog-to-digital converter
-////                          of the microcontroller
-////
-////@param            extGain: value of external gain resistor
-////
-////@return           the current at the working electrode
-////
-////This method calculates the current at the working electrode by reading in the
-////voltage at the output of LMP91000 and dividing by the value of the external
-////gain resistor.
-//double LMP91000::getCurrent(uint16_t adcVal, double adc_ref, uint8_t adc_bits,
-//                            double extGain) const
-//{
-//    return (getVoltage(adcVal, adc_ref, adc_bits) - (adc_ref*TIA_ZERO[zero]))/extGain;
-//}
+
+    adcValue = ADC_convertToMicroVolts(adc, adcValue0);
+
+
+    return adcValue;
+
+
+}
 
 
 

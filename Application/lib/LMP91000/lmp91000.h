@@ -44,6 +44,8 @@ FILENAME:  LMP91000.h
 #include <stddef.h>
 #include <unistd.h>
 #include <ti/drivers/I2C.h>
+#include <ti/drivers/ADC.h>
+#include "ti_drivers_config.h"
 
 const double TEMP_INTERCEPT = 1555;
 const double TEMPSLOPE = -8;
@@ -200,22 +202,13 @@ public:
     void standby();
     void setThreeLead();
     void measureCell();
-    void getTemp();
-    double getTemp(uint8_t sensor, double adc_ref, uint8_t adc_bits);
+    void setTemp();
+    uint32_t getTemp(ADC_Handle handle);
+    uint32_t getCurrentExtern(ADC_Handle handle, uint8_t extGain);
+    uint32_t getCurrent(ADC_Handle handle);
 
     //reading the output of the LMP91000
-    uint16_t getOutput(uint8_t sensor);
-    double getVoltage(uint16_t adcVal, double adc_ref, uint8_t adc_bits);
-    double getCurrent(uint16_t adcVal, double adc_ref, uint8_t adc_bits);
-    double getCurrent(uint16_t adcVal, double adc_ref, uint8_t adc_bits,
-                      double extGain);
-
-    /*
-    double getVoltage(uint8_t sensor, double adc_ref, uint8_t adc_bits) const;
-    double getCurrent(uint8_t sensor, double adc_ref, uint8_t adc_bits) const;
-    double getCurrent(uint8_t sensor, double adc_ref, uint8_t adc_bits,
-                      double extGain) const;
-    */
+    uint32_t getADC(ADC_Handle handle);
 
 };
 

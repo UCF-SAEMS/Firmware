@@ -582,71 +582,33 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   // One-time init of ADC driver
   ADC_init();
 
+
   // initialize optional ADC parameters
   ADC_Params ADCparams;
   ADC_Params_init(&ADCparams);
   ADCparams.isProtected = true;
-
   ADC_Handle adc = ADC_open(CO_OUT, &ADCparams);
 
+  LMP91000 lmp = LMP91000(i2c, LMP91000_I2C_ADDRESS);
 
-  //ADC for DIO 23 for CO sensor working
+
   for(;;){
 
-      /* ADC conversion result variables */
-      uint16_t adcValue0;
-      uint32_t adcValue;
-      int_fast16_t res;
-
-
-
-       /* Blocking mode conversion */
-       res = ADC_convert(adc, &adcValue0);
-
-          if (res == ADC_STATUS_SUCCESS) {
-
-              adcValue = ADC_convertToMicroVolts(adc, adcValue0);
-
-             printf("CONFIG_ADC_0 raw result: %d\n", adcValue0);
-             printf("CONFIG_ADC_0 convert result: %d V\n", adcValue);
-          }
-          else {
-              printf("CONFIG_ADC_0 convert failed\n");
-          }
-
-          Task_sleep(2000 * (1000 / Clock_tickPeriod));
-
-  }
-
-
-  //I2C comm for CO sensor
-  for(;;){
-
-
+      uint8_t dataread = 0;
+      uint32_t dataout = 0;
 
       Task_sleep(2000 * (1000 / Clock_tickPeriod));
 
+      dataout = lmp.getTemp(adc);
 
-      uint8_t rxBuffer[4]={LMP91000_MODECN_REG, 0x03, 0};
-      uint8_t txBuffer[3]={LMP91000_MODECN_REG, 0x03};
+      dataread = lmp.read(LMP91000_MODECN_REG);
 
+      //dataout = lmp.getADC(adc);
 
-      //slave address
-      i2cTransaction.slaveAddress = LMP91000_I2C_ADDRESS;
-
-
-      txBuffer[0]=LMP91000_MODECN_REG;
-
-      //read
-            i2cTransaction.writeCount = 1;
-            i2cTransaction.writeBuf = txBuffer;
-            i2cTransaction.readCount = 1;
-            i2cTransaction.readBuf = rxBuffer;
-            I2C_transfer(i2c, &i2cTransaction);
+      printf("value status %d output %d\n", dataread, dataout);
 
       Task_sleep(2000 * (1000 / Clock_tickPeriod));
 
-      printf("value status %x and value tx %x \n", rxBuffer[0], txBuffer[0]);
   }
 
   struct bme280_data bme_data;
@@ -656,6 +618,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   bme_data = { 0 };
 
   bme280_if_init(&bme_dev, &i2c);
+
 
 char buffer[500];
   for (;;)
