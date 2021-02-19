@@ -398,7 +398,10 @@ ZStatus_t SAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturatio
 #endif // ZCL_LIGHTING
 
 static void SAEMS_SensorsCallback(UArg a0);
-static void getSensorData();
+static void getSensorData(void);
+float scaledHue(void);
+float scaledSaturation(void);
+float scaledIntensity(void);
 // ===============================================================================================================
 // ===============================================================================================================
 
@@ -587,18 +590,23 @@ ZStatus_t SAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturatio
   SAEMS_ColorControl_CurrentHue = pCmd->hue;
   SAEMS_ColorControl_CurrentSaturation = pCmd->saturation;
 
-  // Cast the hue and saturations as floats and get the current intensity
-  float hue = (float) SAEMS_ColorControl_CurrentHue;
-  float saturation = (float) SAEMS_ColorControl_CurrentHue;
-  float intensity = ( (float)zclSampleLight_getCurrentLevelAttribute() ) / 100.0;
   // Pass the 'new hue and saturation' to the LED Board Driver Function
-  ledboard.hsi(hue, saturation, intensity);
-
-  printf("Thread entered 'Move To Hue and Saturation' callback function from receiving command: %d %d\n", SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation);
+  ledboard.hsi(scaledHue(), scaledSaturation(), scaledIntensity());
 
   return ZSuccess;
 }
 #endif // ZCL_LIGHTING
+
+// >>>>>> Correctly Scaled Values for passing to the HSI function <<<<<<
+float scaledHue(void){
+    return( 1.4117 * ((float)SAEMS_ColorControl_CurrentHue) );
+}
+float scaledSaturation(void){
+    return( 0.00392 * ((float)SAEMS_ColorControl_CurrentSaturation) );
+}
+float scaledIntensity(void){
+    return( 0.00392 * ((float)zclSampleLight_getCurrentLevelAttribute()) );
+}
 
 /*********************************************************************
  * @fn      SAEMS_OnOffCB
@@ -616,21 +624,16 @@ static void SAEMS_OnOffCB( uint8_t cmd )
 
   uint8_t OnOff = 0xFE; // initialize to invalid
   uint8_t LightLevel = 0xFE;
-  float OnOff_Intensity = 0.00;
 
   zclSampleLight_DstAddr.addr.shortAddr = pPtr->srcAddr.addr.shortAddr;
 
   // Turn on the light
-  if ( cmd == COMMAND_ON_OFF_ON )
-  {
+  if ( cmd == COMMAND_ON_OFF_ON ){
     OnOff = LIGHT_ON;
-    printf("LIGHT IS TURNING ON!!!\n");
   }
   // Turn off the light
-  else if ( cmd == COMMAND_ON_OFF_OFF )
-  {
+  else if ( cmd == COMMAND_ON_OFF_OFF ){
     OnOff = LIGHT_OFF;
-    printf("LIGHT IS TURNING OFF!!!\n");
   }
 
 
@@ -645,13 +648,12 @@ static void SAEMS_OnOffCB( uint8_t cmd )
   if(zclSampleLight_getCurrentLevelAttribute() > 0)
     LightLevel = 0;
   else if(zclSampleLight_getCurrentLevelAttribute() == 0)
-    LightLevel = 50;
+    LightLevel = 127;
 
 zclSampleLight_updateCurrentLevelAttribute(LightLevel);
 zclSampleLight_updateOnOffAttribute(OnOff);
 
-OnOff_Intensity = LightLevel / 100.0;
-ledboard.hsi(SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation, OnOff_Intensity);
+ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
 
 }
 
@@ -669,8 +671,6 @@ ledboard.hsi(SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation
 static void SAEMS_LevelControlMoveToLevelCB( zclLCMoveToLevel_t *pCmd )
 {
   uint8_t newLevel = pCmd->level;
-  printf("CHANGING THE LIGHT LEVEL TO %u%%!!!\n", (unsigned int)newLevel);
-  float new_intensity = 0.00;
 
   if(newLevel == 0)
     zclSampleLight_updateOnOffAttribute(LIGHT_OFF);
@@ -679,9 +679,7 @@ static void SAEMS_LevelControlMoveToLevelCB( zclLCMoveToLevel_t *pCmd )
 
   zclSampleLight_updateCurrentLevelAttribute(newLevel);
 
-  new_intensity = newLevel / 100.0;
-  ledboard.hsi(SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation, new_intensity);
-
+  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
 }
 #endif
 
@@ -714,7 +712,7 @@ static void SAEMS_SensorsCallback(UArg a0){
  *
  * @return  none
  */
-static void getSensorData(){
+static void getSensorData(void){
     printf("Gathering Sensor Data...\n");
     // Using driver functions, get data from I2C lines and store in the new struct
     // TO-DO:
@@ -827,7 +825,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   led.set(RGB_States::RED | RGB_States::GREEN);
 
   ledboard.init();
-  ledboard.hsi(SAEMS_ColorControl_CurrentHue, SAEMS_ColorControl_CurrentSaturation, ( (float)zclSampleLight_getCurrentLevelAttribute() )/100.0 );
+  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
 
   // No return from task process
   zclSampleLight_process_loop();

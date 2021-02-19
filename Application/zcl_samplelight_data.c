@@ -81,7 +81,7 @@
 #define DEFAULT_MOVE_RATE 0 // as fast as possible
 
 #define DEFAULT_ON_OFF_STATE LIGHT_ON
-#define DEFAULT_LEVEL 50//ATTR_LEVEL_MAX_LEVEL
+#define DEFAULT_LEVEL 127
 
 // Used to update sensor structs
 #define ZCL_DATA_UPDATE
