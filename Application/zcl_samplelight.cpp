@@ -297,9 +297,13 @@ I2C_Handle i2c;
 I2C_Params i2cParams;
 I2C_Transaction i2cTransaction;
 
+ADC_Params ADCparams;
+ADC_Handle adc;
+
 struct bme280_data bme_data;
 struct bme280_dev bme_dev;
 
+LMP91000 lmp = LMP91000(i2c, LMP91000_I2C_ADDRESS);
 LEDBoard ledboard = LEDBoard(CONFIG_SPI_LEDBOARD);
 // ==================================================================================================================
 // ==================================================================================================================
@@ -750,6 +754,14 @@ static void getSensorData(void){
     sprintf(buffer, "BME280: %6.2f deg C, %7.2f hPa, %6.2f %%RH\r\n", temp, pressure, humidity);
     Display_printf(display, 2, 0, "%s", buffer);
 
+    uint32_t dataout = lmp.getTemp(adc);
+    uint8_t dataread = lmp.read(LMP91000_MODECN_REG);
+
+    //sensorDataNew.carbonmonoxide = lmp.read(LMP91000_MODECN_REG);
+    buffer[0] = '\0';
+    sprintf(buffer, "LMP9100: %d,  %d\r\n", dataread, dataout);
+    Display_printf(display, 3, 0, "%s", buffer);
+    
     // The following is sample data...
     #ifdef ZCL_MEASURE_TESTING
     if(measure_Testing == 0){
@@ -805,6 +817,8 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   Display_init();
   SPI_init();
   I2C_init();
+  // One-time init of ADC driver
+  ADC_init();
 
   /* Open the display for output */
   display = Display_open(Display_Type_UART, NULL);
@@ -821,44 +835,13 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   i2cParams.bitRate = I2C_100kHz;
   i2c = I2C_open(CONFIG_I2C_0, &i2cParams);
 
-  // One-time init of ADC driver
-  ADC_init();
-
-
   // initialize optional ADC parameters
-  ADC_Params ADCparams;
   ADC_Params_init(&ADCparams);
   ADCparams.isProtected = true;
-  ADC_Handle adc = ADC_open(CO_OUT, &ADCparams);
-
-  LMP91000 lmp = LMP91000(i2c, LMP91000_I2C_ADDRESS);
-
-
-  for(;;){
-
-      uint8_t dataread = 0;
-      uint32_t dataout = 0;
-
-      Task_sleep(2000 * (1000 / Clock_tickPeriod));
-
-      dataout = lmp.getTemp(adc);
-
-      dataread = lmp.read(LMP91000_MODECN_REG);
-
-      //dataout = lmp.getADC(adc);
-
-      printf("value status %d output %d\n", dataread, dataout);
-
-      Task_sleep(2000 * (1000 / Clock_tickPeriod));
-
-  }
-
-  struct bme280_data bme_data;
-  struct bme280_dev bme_dev;
+  adc = ADC_open(CO_OUT, &ADCparams);
 
   bme_dev = { 0 };
   bme_data = { 0 };
-
   bme280_if_init(&bme_dev, &i2c);
 
   // Set up the io expander
