@@ -669,7 +669,6 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 //  ledboard.init();
 
   mcp.pinMode(MCP_PinMap::ETH_RST, OUTPUT);
-  mcp.pinMode(MCP_PinMap::FONT_CS, OUTPUT);
 
   wizchip_select();
   Task_sleep(100 * (1000 / Clock_tickPeriod));
@@ -679,11 +678,9 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   /* W5500 Chip Reset */
   mcp.digitalWrite(MCP_PinMap::ETH_RST, false);
-  mcp.digitalWrite(MCP_PinMap::FONT_CS, false);
 //  delay_cnt(5000);.
   Task_sleep(50 * (1000 / Clock_tickPeriod));
   mcp.digitalWrite(MCP_PinMap::ETH_RST, true);
-  mcp.digitalWrite(MCP_PinMap::FONT_CS, true);
 //  delay_cnt(10000);
   Task_sleep(100 * (1000 / Clock_tickPeriod));
 

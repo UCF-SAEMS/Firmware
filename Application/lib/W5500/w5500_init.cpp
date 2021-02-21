@@ -26,14 +26,11 @@ static int32_t status;
 void wizchip_select(void)
 {
   GPIO_write(GPIO_ETH_CS, false); // SSEL(CS)
-  mcpptr->digitalWrite(MCP_PinMap::FONT_CS, false);
-
 }
 
 void wizchip_deselect(void)
 {
   GPIO_write(GPIO_ETH_CS, true); // SSEL(CS)
-  mcpptr->digitalWrite(MCP_PinMap::FONT_CS, true);
 }
 
 static void wizchip_readburst(uint8_t *pBuf, uint16_t len)
