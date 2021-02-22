@@ -124,7 +124,7 @@
 #define EXTADDR_OFFSET 0x2F0
 
 
-#define APP_TASK_STACK_SIZE 3000
+#define APP_TASK_STACK_SIZE 4096
 
 #define SET_RFC_MODE(mode) HWREG( PRCM_BASE + PRCM_O_RFCMODESEL ) = (mode)
 
@@ -380,6 +380,7 @@ int main()
     taskParams.stack = myTaskStack;
     taskParams.stackSize = APP_TASK_STACK_SIZE;
     taskParams.priority = 2;
+    taskParams.instance->name = "ZStack Task";
     Task_construct(&myTask, taskFxn, &taskParams, NULL);
 
 #endif

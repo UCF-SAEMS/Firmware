@@ -64,8 +64,10 @@ static void send_http_response_cgi(uint8_t s, uint8_t * buf, uint8_t * http_body
 // Callback functions definition: MCU Reset / WDT Reset
 void default_mcu_reset(void) {;}
 void default_wdt_reset(void) {;}
+uint32_t default_get1s_tick(void) {return 0;}
 void (*HTTPServer_ReStart)(void) = default_mcu_reset;
 void (*HTTPServer_WDT_Reset)(void) = default_wdt_reset;
+uint32_t (*HTTPServer_Get1s_Tick)(void) = default_get1s_tick;
 
 void httpServer_Sockinit(uint8_t cnt, uint8_t * socklist)
 {
@@ -106,11 +108,12 @@ void httpServer_init(uint8_t * tx_buf, uint8_t * rx_buf, uint8_t cnt, uint8_t * 
 
 
 /* Register the call back functions for HTTP Server */
-void reg_httpServer_cbfunc(void(*mcu_reset)(void), void(*wdt_reset)(void))
+void reg_httpServer_cbfunc(void(*mcu_reset)(void), void(*wdt_reset)(void), uint32_t(*get_1s_tick)(void))
 {
 	// Callback: HW Reset and WDT reset function for each MCU platforms
 	if(mcu_reset) HTTPServer_ReStart = mcu_reset;
 	if(wdt_reset) HTTPServer_WDT_Reset = wdt_reset;
+	if(get_1s_tick) HTTPServer_Get1s_Tick = get_1s_tick;
 }
 
 
@@ -648,14 +651,9 @@ static void http_process_handler(uint8_t s, st_http_request * p_http_request)
 	}
 }
 
-void httpServer_time_handler(void)
-{
-	httpServer_tick_1s++;
-}
-
 uint32_t get_httpServer_timecount(void)
 {
-	return httpServer_tick_1s;
+    return HTTPServer_Get1s_Tick();
 }
 
 void reg_httpServer_webContent(uint8_t * content_name, uint8_t * content)

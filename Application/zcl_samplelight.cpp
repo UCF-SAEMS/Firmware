@@ -540,12 +540,33 @@ DMMPolicy_StackRole DMMPolicy_StackRole_Zigbee =
 #include "lib/W5500/ioLibrary_Driver-master/Ethernet/W5500/w5500.h"
 #include "lib/W5500/ioLibrary_Driver-master/Internet/DHCP/dhcp.h"
 #include "lib/W5500/ioLibrary_Driver-master/Internet/DNS/dns.h"
+#include "lib/W5500/ioLibrary_Driver-master/Internet/httpServer/httpServer.h"
+#include "lib/W5500/ioLibrary_Driver-master/Internet/httpServer/httpParser.h"
+#include "lib/W5500/ioLibrary_Driver-master/Internet/httpServer/httpUtil.h"
 #include "Web/webassets.h"
 
-     volatile bool ip_assigned = false;
+volatile bool ip_assigned = false;
 #define DHCP_SOCKET     0
 #define DNS_SOCKET      1
 #define HTTP_SOCKET     2
+
+uint8_t g_send_buf[2048] = { 0 };
+uint8_t g_recv_buf[2048] = { 0 };
+char data[255] = { 0 };
+uint8_t predefined_get_cgi_processor(uint8_t *uri_name, uint8_t *buf, uint16_t *len)
+{
+  return 0;
+}
+
+uint8_t predefined_set_cgi_processor(uint8_t *uri_name, uint8_t *uri, uint8_t *buf, uint16_t *len)
+{
+  return 0;
+}
+
+uint32_t get1sTick(void)
+{
+  return ((Clock_getTicks() * Clock_tickPeriod) / (1000 * 1000));
+}
 
 void Callback_IPAssigned(void)
 {
@@ -797,10 +818,21 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   System_flush();
   Task_sleep(1000 * (1000 / Clock_tickPeriod));
 
-  for(;;){
-  Display_Net_Conf();
-  System_flush();
-    Task_sleep(5000 * (1000 / Clock_tickPeriod));
+  uint8_t sockets[] = { 4 };
+  g_send_buf[2047] = 1;
+  g_recv_buf[2047] = 2;
+
+  httpServer_init(g_send_buf, g_recv_buf, sizeof(sockets), sockets);
+  reg_httpServer_cbfunc(NULL, NULL, get1sTick);
+
+  reg_httpServer_webContent((uint8_t*) "index.html", (uint8_t*) "<html><body>hi</body></html>");
+  for (;;)
+  {
+    httpServer_run(0);
+
+    Task_sleep(100 * (1000 / Clock_tickPeriod));
+    System_printf("-");
+    System_flush();
   }
 
 

@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 // HTTP Server debug message enable
-#define _HTTPSERVER_DEBUG_
+//#define _HTTPSERVER_DEBUG_
 
 #define INITIAL_WEBPAGE				"index.html"
 #define M_INITIAL_WEBPAGE			"m/index.html"
@@ -89,7 +89,7 @@ typedef struct _httpServer_webContent
 
 
 void httpServer_init(uint8_t * tx_buf, uint8_t * rx_buf, uint8_t cnt, uint8_t * socklist);
-void reg_httpServer_cbfunc(void(*mcu_reset)(void), void(*wdt_reset)(void));
+void reg_httpServer_cbfunc(void(*mcu_reset)(void), void(*wdt_reset)(void), uint32_t(*get_1s_tick)(void));
 void httpServer_run(uint8_t seqnum);
 
 void reg_httpServer_webContent(uint8_t * content_name, uint8_t * content);
@@ -101,7 +101,6 @@ uint8_t display_reg_webContent_list(void);
  * @brief HTTP Server 1sec Tick Timer handler
  * @note SHOULD BE register to your system 1s Tick timer handler
  */
-void httpServer_time_handler(void);
 uint32_t get_httpServer_timecount(void);
 
 #ifdef __cplusplus
