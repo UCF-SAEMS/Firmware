@@ -617,12 +617,15 @@ ZStatus_t SAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturatio
 
 // >>>>>> Correctly Scaled Values for passing to the HSI function <<<<<<
 float scaledHue(void){
+    // Constant multiplier obtained from scaling range 0-255 to 0-360
     return( 1.4117 * ((float)SAEMS_ColorControl_CurrentHue) );
 }
 float scaledSaturation(void){
+    // Constant multiplier obtained from scaling range 0-255 to 0-1
     return( 0.00392 * ((float)SAEMS_ColorControl_CurrentSaturation) );
 }
 float scaledIntensity(void){
+    // Constant multiplier obtained from scaling range 0-255 to 0-1
     return( 0.00392 * ((float)zclSampleLight_getCurrentLevelAttribute()) );
 }
 
