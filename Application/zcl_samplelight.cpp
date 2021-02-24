@@ -533,13 +533,13 @@ int motion_state = 0;
 
 void motionDetectedFxn( uint_least8_t index){
   if(debounce == 0){
+    // Start any timer that is currently running
     UtilTimer_stop( &motionStruct );
-
     printf("\n%d- Motion detected: %d\n", reading, GPIO_read( PIR_SENSOR) );
     printf(">> Sending \"Occupied\" to the hub\n");
     reading++;
-    // Set the debounce to 1
-    debounce = 1;
+    // Set the debounce to 1 and motion_state to 0
+    debounce = 1; motion_state = 0;
     // Start the timer for debouncing for 3 seconds
     UtilTimer_setTimeout( motionHandle, 3000 );
     UtilTimer_start( &motionStruct );
@@ -548,6 +548,7 @@ void motionDetectedFxn( uint_least8_t index){
 
 static void SAEMS_motionSensorCallback( UArg a0){  
   (void)a0;
+  // Motion State 0: Debouncing input for only 1 sample
   if(motion_state == 0){
     printf("Debouncing the input!\n");
     debounce = 0;
@@ -557,6 +558,7 @@ static void SAEMS_motionSensorCallback( UArg a0){
     UtilTimer_setTimeout( motionHandle, 30000 );
     UtilTimer_start( &motionStruct );
   }
+  // Motion State 1: Waiting for motion during renewing interval
   else if(motion_state == 1){
     printf("No motion detected!!!\n");
     printf(">> Sending \"Unoccupied\" to the hub\n");
