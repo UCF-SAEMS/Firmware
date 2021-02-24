@@ -104,6 +104,8 @@
 
 #include <ti/drivers/apps/Button.h>
 #include <ti/drivers/apps/LED.h>
+#include <ti/drivers/GPIO.h>
+#include <ti/drivers/Timer.h>
 
 #include "ti_zstack_config.h"
 
@@ -522,6 +524,27 @@ DMMPolicy_StackRole DMMPolicy_StackRole_Zigbee =
 
 #endif // defined(USE_DMM) && defined(BLE_START)
 
+// =====================================================
+Timer_Handle motionHandle;
+Timer_Params motionParams;
+
+int reading = 0;
+int debounce = 0;
+
+void motionDetectedFxn( uint_least8_t index){
+  if(debounce == 0){
+    printf("reading %d: %d\n", reading, GPIO_read( PIR_SENSOR) );
+    reading++;
+    // Set the debounce to 1
+    // Start the timer for debouncing for 3 seconds
+  }
+}
+
+void motionTimerCallback(Timer_Handle handle, int_fast16_t status){
+
+}
+// =====================================================
+
 /*******************************************************************************
  * @fn          sampleApp_task
  *
@@ -546,54 +569,12 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   SPI_init();
   I2C_init();
 
-  Display_Handle display;
-  /* Open the display for output */
-  display = Display_open(Display_Type_UART, NULL);
-  if (display == NULL)
-  {
-    /* Failed to open display driver */
-    while (1)
-      ;
-  }
-
-  Display_printf(display, 0, 0, "-- SAEMS Startup --");
-
   I2C_Handle i2c;
   I2C_Params i2cParams;
   I2C_Transaction i2cTransaction;
   I2C_Params_init(&i2cParams);
   i2cParams.bitRate = I2C_100kHz;
   i2c = I2C_open(CONFIG_I2C_0, &i2cParams);
-
-  struct bme280_data bme_data;
-  struct bme280_dev bme_dev;
-
-  bme_dev = { 0 };
-  bme_data = { 0 };
-
-  bme280_if_init(&bme_dev, &i2c);
-  char buffer[500];
-
-  for (;;)
-  {
-    bme280_if_get_all_sensor_data(&bme_data, &bme_dev);
-
-    float temp, press, hum;
-
-    temp = 0.01f * bme_data.temperature;
-    press = 0.01f * bme_data.pressure;
-    hum = 1.0f / 1024.0f * bme_data.humidity;
-
-    buffer[0] = '\0';
-    sprintf(buffer, "BME280: %6.2f deg C, %7.2f hPa, %6.2f %%RH\r\n", temp, press, hum);
-    Display_printf(display, 1, 0, "%s", buffer);
-
-    buffer[0] = '\0';
-    sprintf(buffer, "BME280: %6u deg C, %7u hPa, %6u %%RH\r\n", bme_data.temperature, bme_data.pressure, bme_data.humidity);
-    Display_printf(display, 2, 0, "%s", buffer);
-
-    Task_sleep(2000 * (1000 / Clock_tickPeriod));
-  }
 
   // Set up the io expander
   MCP23017 mcp = MCP23017(i2c, 0b0100001);
@@ -610,17 +591,30 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   LEDBoard ledboard = LEDBoard(CONFIG_SPI_LEDBOARD);
   ledboard.init();
 
-  for (;;)
-  {
-    for (float br = 0; br < 360; br += .5)
-    {
-      ledboard.hsi(br, 1, 0.8);
-      Task_sleep(50 * (1000 / Clock_tickPeriod));
-    }
+  // =====================================================
+  GPIO_init();
+  printf("Initializaing GPIO...\n");
+  GPIO_setCallback( PIR_SENSOR, motionDetectedFxn);
+  printf("GPIO Interrupt for Motion Sensor established...\n");
+  GPIO_enableInt( PIR_SENSOR );
+  printf("GPIO Interrupt enabled for Motion Sensor ... \n");
+
+  Timer_init();
+  Timer_Params_init(&motionParams);
+  motionParams.periodUnits = Timer_PERIOD_US;
+  motionParams.period = 3000;
+  motionParams.timerMode = Timer_ONESHOT_CALLBACK;
+  motionParams.timerCallback = motionTimerCallback;
+
+  motionHandle = Timer_open(MOTION, &motionParams);
+  if (motionHandle == NULL) {
+    // Timer_open() failed
+    printf("Timer_open() failed\n");
   }
+  // =====================================================
 
   // No return from task process
-  zclSampleLight_process_loop();
+  //zclSampleLight_process_loop();
 }
 
 
