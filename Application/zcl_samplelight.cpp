@@ -105,7 +105,6 @@
 #include <ti/drivers/apps/Button.h>
 #include <ti/drivers/apps/LED.h>
 #include <ti/drivers/GPIO.h>
-#include <ti/drivers/Timer.h>
 
 #include "ti_zstack_config.h"
 
@@ -525,22 +524,45 @@ DMMPolicy_StackRole DMMPolicy_StackRole_Zigbee =
 #endif // defined(USE_DMM) && defined(BLE_START)
 
 // =====================================================
-Timer_Handle motionHandle;
-Timer_Params motionParams;
+Clock_Handle motionHandle;
+Clock_Struct motionStruct;
 
 int reading = 0;
 int debounce = 0;
+int motion_state = 0;
 
 void motionDetectedFxn( uint_least8_t index){
   if(debounce == 0){
-    printf("reading %d: %d\n", reading, GPIO_read( PIR_SENSOR) );
+    UtilTimer_stop( &motionStruct );
+
+    printf("\n%d- Motion detected: %d\n", reading, GPIO_read( PIR_SENSOR) );
+    printf(">> Sending \"Occupied\" to the hub\n");
     reading++;
     // Set the debounce to 1
+    debounce = 1;
     // Start the timer for debouncing for 3 seconds
+    UtilTimer_setTimeout( motionHandle, 3000 );
+    UtilTimer_start( &motionStruct );
   }
 }
 
-void motionTimerCallback(Timer_Handle handle, int_fast16_t status){
+static void SAEMS_motionSensorCallback( UArg a0){  
+  (void)a0;
+  if(motion_state == 0){
+    printf("Debouncing the input!\n");
+    debounce = 0;
+    printf("Changing the motion state to 1\n");
+    motion_state = 1;
+    printf("Restarting the motion timer for 30 seconds\n");
+    UtilTimer_setTimeout( motionHandle, 30000 );
+    UtilTimer_start( &motionStruct );
+  }
+  else if(motion_state == 1){
+    printf("No motion detected!!!\n");
+    printf(">> Sending \"Unoccupied\" to the hub\n");
+    printf("Changing the motion state to 0\n");
+    motion_state = 0;
+  }
 
 }
 // =====================================================
@@ -599,17 +621,14 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   GPIO_enableInt( PIR_SENSOR );
   printf("GPIO Interrupt enabled for Motion Sensor ... \n");
 
-  Timer_init();
-  Timer_Params_init(&motionParams);
-  motionParams.periodUnits = Timer_PERIOD_US;
-  motionParams.period = 3000;
-  motionParams.timerMode = Timer_ONESHOT_CALLBACK;
-  motionParams.timerCallback = motionTimerCallback;
+  motionHandle = UtilTimer_construct(
+  &motionStruct,
+  SAEMS_motionSensorCallback,
+  3000,
+  0, false, 0);
 
-  motionHandle = Timer_open(MOTION, &motionParams);
-  if (motionHandle == NULL) {
-    // Timer_open() failed
-    printf("Timer_open() failed\n");
+  if(motionHandle != NULL){
+    printf("Created timer successfully!\n\n");
   }
   // =====================================================
 
