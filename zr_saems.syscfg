@@ -39,8 +39,6 @@ const SPI      = scripting.addModule("/ti/drivers/SPI", {}, false);
 const SPI1     = SPI.addInstance();
 const TRNG     = scripting.addModule("/ti/drivers/TRNG");
 const TRNG1    = TRNG.addInstance();
-const Timer    = scripting.addModule("/ti/drivers/Timer", {}, false);
-const Timer1   = Timer.addInstance();
 const zstack   = scripting.addModule("/ti/zstack/zstack");
 
 /**
@@ -119,9 +117,6 @@ scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad SP
 
 TRNG1.$name = "CONFIG_TRNG_0";
 
-Timer1.$name               = "MOTION";
-Timer1.timerInstance.$name = "CONFIG_GPTIMER_0";
-
 zstack.deviceType                            = "zr";
 zstack.deviceTypeReadOnly                    = true;
 zstack.touchlink.$name                       = "ti_zstack_touchlink_zstack_touchlink0";
@@ -142,9 +137,8 @@ zstack.advanced.tableSize.$name              = "ti_zstack_advanced_zstack_table_
  * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
  * re-solve from scratch.
  */
-Display1.uart.uart.$suggestSolution         = "UART1";
-I2C1.i2c.$suggestSolution                   = "I2C0";
-SPI1.spi.$suggestSolution                   = "SSI0";
-SPI1.spi.dmaRxChannel.$suggestSolution      = "DMA_CH3";
-SPI1.spi.dmaTxChannel.$suggestSolution      = "DMA_CH4";
-Timer1.timerInstance.timer.$suggestSolution = "GPTM0";
+Display1.uart.uart.$suggestSolution    = "UART1";
+I2C1.i2c.$suggestSolution              = "I2C0";
+SPI1.spi.$suggestSolution              = "SSI0";
+SPI1.spi.dmaRxChannel.$suggestSolution = "DMA_CH3";
+SPI1.spi.dmaTxChannel.$suggestSolution = "DMA_CH4";
