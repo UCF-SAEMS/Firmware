@@ -220,9 +220,9 @@ void zclSampleLight_setGPSinkCommissioningMode(const int32_t _itemEntry);
 #endif
 #endif
 
-extern void getSensorData();
+extern void SAEMS_getSensorData();
 #ifdef ZCL_DATA_UPDATE
-extern void updateSensorData(void);
+extern void SAEMS_updateSensorData(void);
 #endif
 /*********************************************************************
 *********************************************************************/

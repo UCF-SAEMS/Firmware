@@ -904,7 +904,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
 // ====================================================================================================================
 // ====================================================================================================================
 #ifdef ZCL_DATA_UPDATE
-  void updateSensorData(void){
+  void SAEMS_updateSensorData(void){
 
     zstack_bdbRepChangedAttrValueReq_t Req;
     Req.endpoint = SAMPLELIGHT_ENDPOINT;

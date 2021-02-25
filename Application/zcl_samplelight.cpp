@@ -416,7 +416,7 @@ ZStatus_t SAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturatio
 #endif // ZCL_LIGHTING
 
 static void SAEMS_SensorsCallback(UArg a0);
-static void getSensorData(void);
+static void SAEMS_getSensorData(void);
 float scaledHue(void);
 float scaledSaturation(void);
 float scaledIntensity(void);
@@ -725,7 +725,7 @@ static void SAEMS_SensorsCallback(UArg a0){
 }
 
 /*************************************************************************
- * @fn      getSensorData
+ * @fn      SAEMS_getSensorData
  *
  * @brief   Gets data from the sensors through I2C/Digital
  *
@@ -733,7 +733,7 @@ static void SAEMS_SensorsCallback(UArg a0){
  *
  * @return  none
  */
-static void getSensorData(void){
+static void SAEMS_getSensorData(void){
     printf("Gathering Sensor Data...\n");
     // Using driver functions, get data from I2C lines and store in the new struct
     // TO-DO:
@@ -1317,8 +1317,8 @@ static void zclSampleLight_process_loop(void)
             if( appServiceTaskEvents & SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT )
             {
               printf("Entering the Data Transfer functions\n");
-              getSensorData();
-              updateSensorData();
+              SAEMS_getSensorData();
+              SAEMS_updateSensorData();
                   // Reset and restart the timer
                   UtilTimer_setTimeout(SensorDataClkHandle, SENSOR_UPDATE_TIMEOUT);
                   UtilTimer_start(&SensorDataClkStruct);
