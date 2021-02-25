@@ -27,8 +27,6 @@ const ECDSA    = scripting.addModule("/ti/drivers/ECDSA");
 const ECDSA1   = ECDSA.addInstance();
 const ECJPAKE  = scripting.addModule("/ti/drivers/ECJPAKE");
 const ECJPAKE1 = ECJPAKE.addInstance();
-const GPIO     = scripting.addModule("/ti/drivers/GPIO", {}, false);
-const GPIO1    = GPIO.addInstance();
 const I2C      = scripting.addModule("/ti/drivers/I2C", {}, false);
 const I2C1     = I2C.addInstance();
 const NVS      = scripting.addModule("/ti/drivers/NVS");
@@ -86,12 +84,6 @@ ECDH1.$name = "CONFIG_ECDH_0";
 ECDSA1.$name = "CONFIG_ECDSA_0";
 
 ECJPAKE1.$name = "CONFIG_ECJPAKE_0";
-
-GPIO1.$name             = "PIR_SENSOR";
-GPIO1.pull              = "Pull Down";
-GPIO1.interruptTrigger  = "Rising Edge";
-GPIO1.gpioPin.$assign   = "boosterpack.25";
-GPIO1.pinInstance.$name = "CONFIG_PIN_7";
 
 I2C1.$name                = "CONFIG_I2C_0";
 I2C1.i2c.sdaPin.$assign   = "boosterpack.10";

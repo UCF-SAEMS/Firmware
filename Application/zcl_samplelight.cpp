@@ -110,7 +110,6 @@
 
 #include <ti/drivers/apps/Button.h>
 #include <ti/drivers/apps/LED.h>
-#include <ti/drivers/GPIO.h>
 
 // *********************** SAEMS-Specific Includes ***********************
 #include "zcl_ms.h"               // Sensor Clusters
@@ -797,51 +796,6 @@ static void getSensorData(void){
 }
 // ================================================================================================================
 // ================================================================================================================
-// =====================================================
-Clock_Handle motionHandle;
-Clock_Struct motionStruct;
-
-int reading = 0;
-int debounce = 0;
-int motion_state = 0;
-
-void motionDetectedFxn( uint_least8_t index){
-  if(debounce == 0){
-    // Start any timer that is currently running
-    UtilTimer_stop( &motionStruct );
-    printf("\n%d- Motion detected: %d\n", reading, GPIO_read( PIR_SENSOR) );
-    printf(">> Sending \"Occupied\" to the hub\n");
-    reading++;
-    // Set the debounce to 1 and motion_state to 0
-    debounce = 1; motion_state = 0;
-    // Start the timer for debouncing for 3 seconds
-    UtilTimer_setTimeout( motionHandle, 3000 );
-    UtilTimer_start( &motionStruct );
-  }
-}
-
-static void SAEMS_motionSensorCallback( UArg a0){  
-  (void)a0;
-  // Motion State 0: Debouncing input for only 1 sample
-  if(motion_state == 0){
-    printf("Debouncing the input!\n");
-    debounce = 0;
-    printf("Changing the motion state to 1\n");
-    motion_state = 1;
-    printf("Restarting the motion timer for 30 seconds\n");
-    UtilTimer_setTimeout( motionHandle, 30000 );
-    UtilTimer_start( &motionStruct );
-  }
-  // Motion State 1: Waiting for motion during renewing interval
-  else if(motion_state == 1){
-    printf("No motion detected!!!\n");
-    printf(">> Sending \"Unoccupied\" to the hub\n");
-    printf("Changing the motion state to 0\n");
-    motion_state = 0;
-  }
-
-}
-// =====================================================
 
 /*******************************************************************************
  * @fn          sampleApp_task
@@ -880,9 +834,6 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   Display_printf(display, 0, 0, "-- SAEMS Startup --");
 
-  I2C_Handle i2c;
-  I2C_Params i2cParams;
-  I2C_Transaction i2cTransaction;
   I2C_Params_init(&i2cParams);
   i2cParams.bitRate = I2C_100kHz;
   i2c = I2C_open(CONFIG_I2C_0, &i2cParams);
@@ -911,27 +862,8 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ledboard.init();
   ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
 
-  // =====================================================
-  GPIO_init();
-  printf("Initializaing GPIO...\n");
-  GPIO_setCallback( PIR_SENSOR, motionDetectedFxn);
-  printf("GPIO Interrupt for Motion Sensor established...\n");
-  GPIO_enableInt( PIR_SENSOR );
-  printf("GPIO Interrupt enabled for Motion Sensor ... \n");
-
-  motionHandle = UtilTimer_construct(
-  &motionStruct,
-  SAEMS_motionSensorCallback,
-  3000,
-  0, false, 0);
-
-  if(motionHandle != NULL){
-    printf("Created timer successfully!\n\n");
-  }
-  // =====================================================
-
   // No return from task process
-  //zclSampleLight_process_loop();
+  zclSampleLight_process_loop();
 }
 
 
