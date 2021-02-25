@@ -765,6 +765,10 @@ static void SAEMS_getSensorData(void){
     sprintf(buffer, "LMP9100: %d,  %d\r\n", dataread, dataout);
     Display_printf(display, 3, 0, "%s", buffer);
     
+    buffer[0] = '\0';
+    sprintf(buffer, "MOTION: %d\r\n", GPIO_read(PIR_SENSOR) );
+    Display_printf(display, 4, 0, "%s", buffer);
+    
     // The following is sample data...
     #ifdef ZCL_MEASURE_TESTING
     if(measure_Testing == 0){
@@ -820,8 +824,8 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   Display_init();
   SPI_init();
   I2C_init();
-  // One-time init of ADC driver
   ADC_init();
+  GPIO_init();
 
   /* Open the display for output */
   display = Display_open(Display_Type_UART, NULL);
@@ -861,6 +865,15 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   ledboard.init();
   ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
+
+  //GPIO_setCallback( PIR_SENSOR, detectedMotionInterrupt );
+  //GPIO_enableInt( PIR_SENSOR );
+  
+  /*
+  if( motionHandle != NULL){
+    printf("Successfully created the motion timer!\n");
+  }
+  */
 
   // No return from task process
   zclSampleLight_process_loop();
