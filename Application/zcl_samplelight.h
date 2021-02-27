@@ -92,7 +92,7 @@ extern "C"
 
 #define SAMPLEAPP_END_DEVICE_REJOIN_DELAY 1000
 #define SAMPLEAPP_CONFIG_SYNC_TIMEOUT     500
-#define SENSOR_UPDATE_TIMEOUT             10000
+#define SENSOR_UPDATE_TIMEOUT             5000
 
 // Update structures
 #define ZCL_DATA_UPDATE

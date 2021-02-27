@@ -243,8 +243,6 @@ static Clock_Struct EndDeviceRejoinClkStruct;
 static Clock_Handle DiscoveryClkHandle;
 static Clock_Struct DiscoveryClkStruct;
 
-static Clock_Handle SensorDataClkHandle;
-static Clock_Struct SensorDataClkStruct;
 
 #if defined(USE_DMM) && defined(BLE_START)
 static Clock_Struct SyncAttrClkStruct;
@@ -289,6 +287,8 @@ static void tl_BDBFindingBindingCb(void);
 // ------------------------------------ SAEMS-SPECIFIED VARIABLES AND STRUCTURES ------------------------------------
 // ==================================================================================================================
 int measure_Testing = 0;
+int debounce = 0;
+int motion_state = 0;
 static uint16_t zclSampleLight_BdbCommissioningModes;
 
 Display_Handle display;
@@ -296,9 +296,13 @@ Display_Handle display;
 I2C_Handle i2c;
 I2C_Params i2cParams;
 I2C_Transaction i2cTransaction;
-
 ADC_Params ADCparams;
 ADC_Handle adc;
+
+static Clock_Handle SensorDataClkHandle;
+static Clock_Struct SensorDataClkStruct;
+static Clock_Handle MotionSensorClkHandle;
+static Clock_Struct MotionSensorClkStruct;
 
 struct bme280_data bme_data;
 struct bme280_dev bme_dev;
@@ -768,7 +772,7 @@ static void SAEMS_getSensorData(void){
     buffer[0] = '\0';
     sprintf(buffer, "MOTION: %d\r\n", GPIO_read(PIR_SENSOR) );
     Display_printf(display, 4, 0, "%s", buffer);
-    
+
     // The following is sample data...
     #ifdef ZCL_MEASURE_TESTING
     if(measure_Testing == 0){
@@ -797,6 +801,60 @@ static void SAEMS_getSensorData(void){
         measure_Testing = 0;
     }
     #endif
+}
+
+/************************************************************
+ * @fn        SAEMS_detectedMotionInterrupt
+ * 
+ * @brief     Interrupt function for detect motion from PIR sensor
+ * 
+ * @param     index - GPIO pin which calls the interrupt
+ * 
+ * @return    none
+*/
+void SAEMS_detectedMotionInterrupt(uint_least8_t index){
+  if( debounce == 0){
+    // Stop any timer that is currently running
+    UtilTimer_stop( &MotionSensorClkStruct );
+    printf("MOTION DETECTED!\n");
+    // Set occupancy to "Occupied: 1"
+    sensorDataNew.occupancy = 1;
+    printf("Setting Occupancy: %d\t", sensorDataNew.occupancy);
+    // Set debounce to 1 and motion_state to 0
+    debounce = 1;     motion_state = 0;
+    // Start the timer for debouncing for 3 seconds
+    printf("Debounce Timer: 3 secs\n");
+    UtilTimer_setTimeout( MotionSensorClkHandle, 3000);
+    UtilTimer_start( &MotionSensorClkStruct );
+  }
+}
+
+/*************************************************************
+ * @fn        SAEMS_MotionSensorCB
+ * 
+ * @brief     Timeout handler for debouncing for 3secs and renewing for 5mins
+ * 
+ * @param     a0 - this parameter is unused
+ * 
+ * @return    none
+ */ 
+static void SAEMS_MotionSensorCB(UArg a0){
+  (void)a0;
+  // Motion State 0: Debouncing input for only 1 sample
+  if( motion_state == 0){
+    printf("Input has been debounced...\t");
+    debounce = 0;     motion_state = 1;
+    printf("Renewing Interval Timer: 30 secs\n");
+    UtilTimer_setTimeout( MotionSensorClkHandle, 30000);
+    UtilTimer_start( &MotionSensorClkStruct );
+  }
+  // Motion State 1:
+  else if( motion_state == 1){
+    printf("NO MOTION DETECTED!\n");
+    sensorDataNew.occupancy = 0;
+    printf("Setting Occupancy: %d\t", sensorDataNew.occupancy);
+    motion_state = 0;
+  }
 }
 // ================================================================================================================
 // ================================================================================================================
@@ -866,8 +924,8 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ledboard.init();
   ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
 
-  //GPIO_setCallback( PIR_SENSOR, detectedMotionInterrupt );
-  //GPIO_enableInt( PIR_SENSOR );
+  GPIO_setCallback( PIR_SENSOR, SAEMS_detectedMotionInterrupt );
+  GPIO_enableInt( PIR_SENSOR );
   
   /*
   if( motionHandle != NULL){
@@ -1225,6 +1283,16 @@ static void zclSampleLight_initializeClocks(void)
     SENSOR_UPDATE_TIMEOUT,
     0, false, 0);
     // ==============================================================
+
+    // =============================================================
+    // =================== Motion Detection Clock ==================
+    // =============================================================
+    MotionSensorClkHandle = UtilTimer_construct(
+    &MotionSensorClkStruct,
+    SAEMS_MotionSensorCB,
+    3000,
+    0, false, 0); 
+    // =============================================================
 }
 
 #if ZG_BUILD_ENDDEVICE_TYPE

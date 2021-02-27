@@ -114,7 +114,7 @@
 #define TEMPERATURE_UPDATE_THRESHOLD 0001
 #define HUMIDITY_UPDATE_THRESHOLD 0001
 #define PRESSURE_UPDATE_THRESHOLD 0001
-#define OCCUPANCY_UPDATE_THRESHOLD 0010
+#define OCCUPANCY_UPDATE_THRESHOLD 1
 #define CARBONMONOXIDE_UPDATE_THRESHOLD 0010
 #define CARBONDIOXIDE_UPDATE_THRESHOLD 0010
 #define SMOKE_UPDATE_THRESHOLD 0010
@@ -943,7 +943,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     }
 
     // Update occupancy value
-    if (abs(sensorDataCurrent.occupancy - sensorDataNew.occupancy) > OCCUPANCY_UPDATE_THRESHOLD) {
+    if (abs(sensorDataCurrent.occupancy - sensorDataNew.occupancy) >= OCCUPANCY_UPDATE_THRESHOLD) {
         sensorDataCurrent.occupancy = sensorDataNew.occupancy;
         printf("Occupancy updated to %u\n", (unsigned int)sensorDataCurrent.occupancy);
 
