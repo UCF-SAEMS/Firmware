@@ -932,6 +932,8 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
     printf("Successfully created the motion timer!\n");
   }
   */
+  // ** In case the device is deleted from Smart Things or becomes unpaired in the network **
+  //Zstackapi_bdbResetLocalActionReq( appServiceTaskId );
 
   // No return from task process
   zclSampleLight_process_loop();
