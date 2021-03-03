@@ -571,6 +571,36 @@ uint32_t LMP91000::getTemp(ADC_Handle adc)
     return getADC(adc);
 }
 
+//double LMP91000::getTemp(uint8_t sensor, double adc_ref, uint8_t adc_bits) const
+//returns               temperatue in degrees Celsius
+//
+//Measures temperature by setting bits 0, 1, and 2 of the Mode Control Register
+//to 1. This sets the transimpedance amplifier of the LMP91000 ON and sends
+//the output of the internal temperature sensor to the VOUT pin of the LMP91000.
+double LMP91000::getTempValue(ADC_Handle adc)
+{
+    double value;
+    double result;
+    double temp;
+    uint8_t data = read(LMP91000_MODECN_REG);
+    data &= ~(0x07); //clears the first three bits
+    data |= (0x07);
+    write(LMP91000_MODECN_REG, data);
+
+    Task_sleep(2000 * (1000 / Clock_tickPeriod));
+
+    value = getADC(adc);
+
+    result = value/1000;
+
+    temp = ((-1 *(result-1561.5))/8.15);
+
+    return temp;
+
+//approximate the value of the temperature to temp over a range of 10C to 50C
+
+}
+
 //This method calculates the current at the working electrode by reading in the
 //voltage at the output of LMP91000 and dividing by the value of the external
 //gain resistor.

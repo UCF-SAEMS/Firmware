@@ -169,6 +169,7 @@ extern "C" {
 
 
 #include "lib/LMP91000/lmp91000.h"
+#include "lib/CCS811/CCS811.h"
 //#include <lib/LMP91000/lmp91000.cpp>
 //#include "lib/LMP91000/lmp91000_if.h"
 
@@ -595,17 +596,27 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   for(;;){
 
       uint8_t dataread = 0;
-      uint32_t dataout = 0;
+      uint8_t dataout = 0;
+      double temp;
+      uint32_t data = 0;
 
-      Task_sleep(2000 * (1000 / Clock_tickPeriod));
-
-      dataout = lmp.getTemp(adc);
+      temp = lmp.getTempValue(adc);
 
       dataread = lmp.read(LMP91000_MODECN_REG);
 
-      //dataout = lmp.getADC(adc);
+      data = lmp.getADC(adc);
 
-      printf("value status %d output %d\n", dataread, dataout);
+      printf("value status in MODE reg %d output %.2f C, raw uV value %d \n", dataread, temp, data);
+
+      Task_sleep(2000 * (1000 / Clock_tickPeriod));
+
+      lmp.setThreeLead();
+
+      dataread = lmp.read(LMP91000_MODECN_REG);
+
+      data = lmp.getADC(adc);
+
+      printf("value status in MODE reg %d, raw uV value %d \n \n", dataread, data);
 
       Task_sleep(2000 * (1000 / Clock_tickPeriod));
 
