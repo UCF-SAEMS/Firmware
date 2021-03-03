@@ -148,6 +148,9 @@ extern "C" {
 #include <ti/display/AnsiColor.h>
 #include "stdio.h"
 
+  // Import ADC Driver definitions
+//#include <ti/drivers/ADC.h>
+
 // Hardware includes
 #include "myconfig.h"
 
@@ -158,6 +161,9 @@ extern "C" {
 #include "lib/BME280/bme280.h"
 #include "lib/BME280/bme280_defs.h"
 #include "lib/BME280/bme280_if.h"
+
+
+#include "lib/CCS811/CCS811.h"
 
 /*********************************************************************
  * MACROS
@@ -565,6 +571,22 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   i2cParams.bitRate = I2C_100kHz;
   i2c = I2C_open(CONFIG_I2C_0, &i2cParams);
 
+  ScioSense_CCS811 ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
+
+  for(;;)
+  {
+
+      int out;
+      uint8_t datarx[1];
+
+      out = ccs.read(CCS811_SLAVEADDR_1, CCS811_HW_ID, datarx, 1);
+
+      printf("value status is %d , status %d\n", datarx[0], out);
+
+      Task_sleep(2000 * (1000 / Clock_tickPeriod));
+
+  }
+
   struct bme280_data bme_data;
   struct bme280_dev bme_dev;
 
@@ -573,6 +595,8 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   bme280_if_init(&bme_dev, &i2c);
   char buffer[500];
+
+
 
   for (;;)
   {
