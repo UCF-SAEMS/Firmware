@@ -346,16 +346,8 @@ uint8_t ScioSense_CCS811::read(uint8_t addr, uint8_t reg, uint8_t *regdata, uint
 
     _i2cTransaction.writeCount = 1;
     _i2cTransaction.writeBuf = &reg;
-    _i2cTransaction.readCount = 0;
-    _i2cTransaction.readBuf = &regdata;
-    _i2cTransaction.slaveAddress = addr;
-
-    I2C_transfer(*_bus, &_i2cTransaction);
-
-    _i2cTransaction.writeCount = 0;
-    _i2cTransaction.writeBuf = &reg;
     _i2cTransaction.readCount = num;
-    _i2cTransaction.readBuf = &regdata;
+    _i2cTransaction.readBuf = regdata;
     _i2cTransaction.slaveAddress = addr;
 
     I2C_transfer(*_bus, &_i2cTransaction);
@@ -384,22 +376,13 @@ uint8_t ScioSense_CCS811::read(uint8_t addr, uint8_t reg, uint8_t *regdata, uint
 
 void ScioSense_CCS811::write(uint8_t addr, uint8_t reg, uint8_t *data, uint8_t num)
 {
-    uint8_t ibuf[num];
+    uint8_t ibuf[num + 1];
 
-    for(int i=0; i<num; i++)
-    {
-        if(i==0)
-        {
-            ibuf[i] = reg;
-        }
-        else{
-            ibuf[i] = data[i-1];
-        }
+    ibuf[0] = reg;
+    memcpy(ibuf + 1, data, num);
 
-    }
-
-    _i2cTransaction.writeCount = num;
-    _i2cTransaction.writeBuf = &ibuf;
+    _i2cTransaction.writeCount = num +  1;
+    _i2cTransaction.writeBuf = ibuf;
     _i2cTransaction.readCount = 0;
     _i2cTransaction.slaveAddress = addr;
 
