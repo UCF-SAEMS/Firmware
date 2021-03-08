@@ -312,6 +312,7 @@ struct bme280_data bme_data;
 struct bme280_dev bme_dev;
 
 LMP91000 lmp = LMP91000(i2c, LMP91000_I2C_ADDRESS);
+ScioSense_CCS811 ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
 LEDBoard ledboard = LEDBoard(CONFIG_SPI_LEDBOARD);
 // ==================================================================================================================
 // ==================================================================================================================
@@ -765,7 +766,7 @@ static void SAEMS_getSensorData(void){
     sprintf(buffer, "BME280: %6.2f deg C, %7.2f hPa, %6.2f %%RH\r\n", temp, pressure, humidity);
     Display_printf(display, 2, 0, "%s", buffer);
     //--------------------------------------------------------------------------------------
-
+    // Carbon Monoxide
     lmp.setThreeLead();
     uint8_t dataread = lmp.read(LMP91000_MODECN_REG);
     sensorDataNew.carbonmonoxide = 0.001 * lmp.getADC(adc);
@@ -777,9 +778,24 @@ static void SAEMS_getSensorData(void){
     sprintf(buffer, "LMP9100: %d,  %u\r\n", dataread, sensorDataNew.carbonmonoxide);
     Display_printf(display, 3, 0, "%s", buffer);
     //--------------------------------------------------------------------------------------
+    // VOC
+    uint8_t datarx[1];
+
+    int out = ccs.read(CCS811_SLAVEADDR_1, CCS811_HW_ID, datarx, 1);
+
+    sensorDataNew.voc = datarx[0];
+    printf("Hardware ID: %d , status %d\n", datarx[0], out);
+
+    buffer[0] = '\0';
+    sprintf(buffer, "CCS811: %d\r\n", sensorDataNew.voc);
+    Display_printf(display, 5, 0, "%s", buffer);
+    //out = ccs.read(CCS811_SLAVEADDR_1, CCS811_ALG_RESULT_DATA, voc_data, 4);
+    //printf("eCO2: %x \n TVOC: %x\n", voc_data[1], voc_data[2]);
+
+    //--------------------------------------------------------------------------------------
     buffer[0] = '\0';
     sprintf(buffer, "MOTION: %d\r\n", GPIO_read(PIR_SENSOR) );
-    Display_printf(display, 4, 0, "%s", buffer);
+    Display_printf(display, 6, 0, "%s", buffer);
 
     // The following is sample data...
     #ifdef ZCL_MEASURE_TESTING
@@ -913,9 +929,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ADCparams.isProtected = true;
   adc = ADC_open(CO_OUT, &ADCparams);
   
-  ScioSense_CCS811 ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
-
-  for(;;)
+  /*for(;;)
   {
 
       int out;
@@ -932,8 +946,10 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
       Task_sleep(2000 * (1000 / Clock_tickPeriod));
 
-  }
+  }*/
 
+  ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
+  
   bme_dev = { 0 };
   bme_data = { 0 };
   bme280_if_init(&bme_dev, &i2c);
