@@ -186,7 +186,7 @@ extern "C" {
 
 
 #include "lib/LMP91000/lmp91000.h"
-#include "lib/ CCS811/CCS811.h"
+#include "lib/CCS811/CCS811.h"
 //#include <lib/LMP91000/lmp91000.cpp>
 //#include "lib/LMP91000/lmp91000_if.h"
 
@@ -920,10 +920,15 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
       int out;
       uint8_t datarx[1];
+      uint8_t voc_data[5];
 
       out = ccs.read(CCS811_SLAVEADDR_1, CCS811_HW_ID, datarx, 1);
 
-      printf("value status is %d , status %d\n", datarx[0], out);
+      printf("Hardware ID: %d , status %d\n", datarx[0], out);
+
+      out = ccs.read(CCS811_SLAVEADDR_1, CCS811_ALG_RESULT_DATA, voc_data, 4);
+
+      printf("eCO2: %x \n TVOC: %x\n", voc_data[1], voc_data[2]);
 
       Task_sleep(2000 * (1000 / Clock_tickPeriod));
 
