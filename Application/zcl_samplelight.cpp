@@ -169,6 +169,9 @@ extern "C" {
 #include <ti/drivers/ADC.h>
 
 
+  // Import ADC Driver definitions
+//#include <ti/drivers/ADC.h>
+
 // Hardware includes
 #include "myconfig.h"
 
@@ -183,7 +186,7 @@ extern "C" {
 
 
 #include "lib/LMP91000/lmp91000.h"
-//#include "lib/CCS811/CCS811.h"
+#include "lib/ CCS811/CCS811.h"
 //#include <lib/LMP91000/lmp91000.cpp>
 //#include "lib/LMP91000/lmp91000_if.h"
 
@@ -909,6 +912,22 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ADC_Params_init(&ADCparams);
   ADCparams.isProtected = true;
   adc = ADC_open(CO_OUT, &ADCparams);
+  
+  ScioSense_CCS811 ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
+
+  for(;;)
+  {
+
+      int out;
+      uint8_t datarx[1];
+
+      out = ccs.read(CCS811_SLAVEADDR_1, CCS811_HW_ID, datarx, 1);
+
+      printf("value status is %d , status %d\n", datarx[0], out);
+
+      Task_sleep(2000 * (1000 / Clock_tickPeriod));
+
+  }
 
   bme_dev = { 0 };
   bme_data = { 0 };
