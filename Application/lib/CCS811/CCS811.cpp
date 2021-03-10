@@ -49,11 +49,8 @@ bool ScioSense_CCS811::begin( void ) {
 
     // Invoke a SW reset (bring CCS811 in a know state)
     this->write(_slaveaddr, CCS811_SW_RESET, sw_reset, 4);
-    if( !(ok == 0) ) {
-        printf("ccs811: reset failed");
-      goto abort_begin;
-    }
-    //delayMicroseconds(CCS811_WAIT_AFTER_RESET_US);
+
+    Task_sleep(CCS811_WAIT_AFTER_RESET_US * Clock_tickPeriod);
 
     // Check that HW_ID is 0x81
     ok = this->read(_slaveaddr, CCS811_HW_ID, &hw_id, 1);

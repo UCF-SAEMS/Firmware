@@ -572,6 +572,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   i2c = I2C_open(CONFIG_I2C_0, &i2cParams);
 
   ScioSense_CCS811 ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
+  ccs.begin();
 
   for(;;)
   {
