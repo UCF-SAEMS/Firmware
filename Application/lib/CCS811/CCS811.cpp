@@ -314,30 +314,6 @@ uint8_t ScioSense_CCS811::read8(uint8_t addr, uint8_t reg)
     return ret;
 }
 
-//uint8_t ScioSense_CCS811::read(uint8_t addr, uint8_t reg, uint8_t *buf, uint8_t num)
-//{
-//    uint8_t pos = 0;
-//    uint8_t result = 0;
-//
-//    //on arduino we need to read in 32 byte chunks
-//    while(pos < num){
-//
-//        uint8_t read_now = min((uint8_t)32, (uint8_t)(num - pos));
-//        Wire.beginTransmission((uint8_t)addr);
-//
-//        Wire.write((uint8_t)reg + pos);
-//        result = Wire.endTransmission();
-//
-//        Wire.requestFrom((uint8_t)addr, read_now);
-//
-//        for(int i=0; i<read_now; i++){
-//            buf[pos] = Wire.read();
-//            pos++;
-//        }
-//    }
-//    return result;
-//}
-
 uint8_t ScioSense_CCS811::read(uint8_t addr, uint8_t reg, uint8_t *regdata, uint8_t num)
 {
 
@@ -353,23 +329,13 @@ uint8_t ScioSense_CCS811::read(uint8_t addr, uint8_t reg, uint8_t *regdata, uint
 
 }
 
-/**************************************************************************/
 
-//uint8_t ScioSense_CCS811::write8(uint8_t addr, uint8_t reg, uint8_t value)
-//{
-//    uint8_t result = this->write(addr, reg, value, 1);
-//    return result;
-//}
+uint8_t ScioSense_CCS811::write8(uint8_t addr, uint8_t reg, uint8_t value)
+{
+    this->write(addr, reg, &value, 1);
+    return 0;
+}
 
-//uint8_t ScioSense_CCS811::write(uint8_t addr, uint8_t reg, uint8_t *buf, uint8_t num)
-//{
-//
-//    Wire.beginTransmission((uint8_t)addr);
-//    Wire.write((uint8_t)reg);
-//    Wire.write((uint8_t *)buf, num);
-//    uint8_t result = Wire.endTransmission();
-//    return result;
-//}
 
 void ScioSense_CCS811::write(uint8_t addr, uint8_t reg, uint8_t *data, uint8_t num)
 {

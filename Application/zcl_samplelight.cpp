@@ -574,15 +574,39 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ScioSense_CCS811 ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
   ccs.begin();
 
+  ccs.start(1);
+
+  uint8_t dataread[4] = {0, 0, 0, 0};
+  uint8_t dataraw[2] = {0, 0};
+
   for(;;)
   {
 
       int out;
+      int state;
+      int read;
+      int stat;
+      int raw;
+      uint8_t status[1];
+      uint8_t data[1];
       uint8_t datarx[1];
 
       out = ccs.read(CCS811_SLAVEADDR_1, CCS811_HW_ID, datarx, 1);
 
-      printf("value status is %d , status %d\n", datarx[0], out);
+      stat = ccs.read(CCS811_SLAVEADDR_1, CCS811_STATUS, data, 1);
+
+      read = ccs.read(CCS811_SLAVEADDR_1, CCS811_ALG_RESULT_DATA, dataread, 4);
+
+      raw = ccs.read(CCS811_SLAVEADDR_1, CCS811_RAW_DATA, dataraw, 2);
+
+      state = ccs.read(CCS811_SLAVEADDR_1, CCS811_ERROR_ID, status, 1);
+
+
+      printf("value status byte one is %d, status %d\n", datarx[0], out);
+      printf("read status byte one through four is %d, %d, %d, %d, status %d\n", dataread[0], dataread[1], dataread[2], dataread[3], read);
+      printf("raw data is %d, %d, status %d\n", dataraw[0], dataraw[1], raw);
+      printf("status data is %d, status %d\n", data[0], stat);
+      printf("error data is %d, status %d\n\n", status[0], state);
 
       Task_sleep(2000 * (1000 / Clock_tickPeriod));
 
