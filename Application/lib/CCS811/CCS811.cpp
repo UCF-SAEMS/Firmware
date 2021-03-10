@@ -102,7 +102,7 @@ bool ScioSense_CCS811::begin( void ) {
       printf("ccs811: Goto app mode failed");
       goto abort_begin;
     }
-    //delayMicroseconds(CCS811_WAIT_AFTER_APPSTART_US);
+    Task_sleep(CCS811_WAIT_AFTER_APPSTART_US * Clock_tickPeriod);
 
     // Check if the switch was successful
     ok = this->read(_slaveaddr, CCS811_STATUS, &status, 1);
