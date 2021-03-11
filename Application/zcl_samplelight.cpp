@@ -293,6 +293,8 @@ static void tl_BDBFindingBindingCb(void);
 int measure_Testing = 0;
 int debounce = 0;
 int motion_state = 0;
+uint16_t CCS811_co2 = 0;
+uint16_t SCD30_co2 = 0;
 static uint16_t zclSampleLight_BdbCommissioningModes;
 
 Display_Handle display;
@@ -779,23 +781,18 @@ static void SAEMS_getSensorData(void){
     Display_printf(display, 3, 0, "%s", buffer);
     //--------------------------------------------------------------------------------------
     // VOC
-    uint8_t datarx[1];
-
-    int out = ccs.read(CCS811_SLAVEADDR_1, CCS811_HW_ID, datarx, 1);
-
-    sensorDataNew.voc = datarx[0];
-    printf("Hardware ID: %d , status %d\n", datarx[0], out);
+    ccs.sample();
+    sensorDataNew.carbondioxide = ccs.getECO2();
+    sensorDataNew.voc = ccs.getTVOC();
+    CCS811_co2 = sensorDataNew.carbondioxide;
 
     buffer[0] = '\0';
-    sprintf(buffer, "CCS811: %d\r\n", sensorDataNew.voc);
-    Display_printf(display, 5, 0, "%s", buffer);
-    //out = ccs.read(CCS811_SLAVEADDR_1, CCS811_ALG_RESULT_DATA, voc_data, 4);
-    //printf("eCO2: %x \n TVOC: %x\n", voc_data[1], voc_data[2]);
-
+    sprintf(buffer, "CCS811: %u, %u\r\n", sensorDataNew.voc, sensorDataNew.carbondioxide);
+    Display_printf(display, 4, 0, "%s", buffer);
     //--------------------------------------------------------------------------------------
     buffer[0] = '\0';
     sprintf(buffer, "MOTION: %d\r\n", GPIO_read(PIR_SENSOR) );
-    Display_printf(display, 6, 0, "%s", buffer);
+    Display_printf(display, 5, 0, "%s", buffer);
 
     // The following is sample data...
     #ifdef ZCL_MEASURE_TESTING
@@ -928,46 +925,12 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ADC_Params_init(&ADCparams);
   ADCparams.isProtected = true;
   adc = ADC_open(CO_OUT, &ADCparams);
-  
-  /*for(;;)
-  {
-
-      int out;
-      uint8_t datarx[1];
-      uint8_t voc_data[5];
-  ScioSense_CCS811 ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
-  ccs.begin();
-
-  ccs.start(1);
-
-  uint8_t dataread[4] = {0, 0, 0, 0};
-  uint8_t dataraw[2] = {0, 0};
-
-  for(;;)
-  {
-
-    uint16_t eco2, etvoc;
-    ccs.sample();
-
-    //TODO: additional handling needs to be added to check the CCS811_ERRSTAT_DATA_READY field
-    eco2 = ccs.getECO2();
-    etvoc = ccs.getTVOC();
-    printf("CCS811:\r\n\tstatus: 0x%04x (%s)\r\n", ccs.getErrstat(), ccs.errstat_str(ccs.getErrstat()));
-    printf("\tco2: %10d\r\n\tvoc: %10d\r\n\r\n", eco2, etvoc);
-
-      printf("Hardware ID: %d , status %d\n", datarx[0], out);
-
-      out = ccs.read(CCS811_SLAVEADDR_1, CCS811_ALG_RESULT_DATA, voc_data, 4);
-    Task_sleep(2000 * (1000 / Clock_tickPeriod));
-
-      printf("eCO2: %x \n TVOC: %x\n", voc_data[1], voc_data[2]);
-
-      Task_sleep(2000 * (1000 / Clock_tickPeriod));
-
-  }*/
 
   ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
-  
+
+  ccs.begin();
+  ccs.start(1);
+
   bme_dev = { 0 };
   bme_data = { 0 };
   bme280_if_init(&bme_dev, &i2c);
@@ -989,15 +952,13 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   GPIO_setCallback( PIR_SENSOR, SAEMS_detectedMotionInterrupt );
   GPIO_enableInt( PIR_SENSOR );
-  
-  /*
-  if( motionHandle != NULL){
+
+  if( MotionSensorClkHandle != NULL){
     printf("Successfully created the motion timer!\n");
   }
-  */
+
   // ** In case the device is deleted from Smart Things or becomes unpaired in the network **
   //Zstackapi_bdbResetLocalActionReq( appServiceTaskId );
-
   // No return from task process
   zclSampleLight_process_loop();
 }
