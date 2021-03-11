@@ -582,33 +582,16 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   for(;;)
   {
 
-      int out;
-      int state;
-      int read;
-      int stat;
-      int raw;
-      uint8_t status[1];
-      uint8_t data[1];
-      uint8_t datarx[1];
+    uint16_t eco2, etvoc;
+    ccs.sample();
 
-      out = ccs.read(CCS811_SLAVEADDR_1, CCS811_HW_ID, datarx, 1);
+    //TODO: additional handling needs to be added to check the CCS811_ERRSTAT_DATA_READY field
+    eco2 = ccs.getECO2();
+    etvoc = ccs.getTVOC();
+    printf("CCS811:\r\n\tstatus: 0x%04x (%s)\r\n", ccs.getErrstat(), ccs.errstat_str(ccs.getErrstat()));
+    printf("\tco2: %10d\r\n\tvoc: %10d\r\n\r\n", eco2, etvoc);
 
-      stat = ccs.read(CCS811_SLAVEADDR_1, CCS811_STATUS, data, 1);
-
-      read = ccs.read(CCS811_SLAVEADDR_1, CCS811_ALG_RESULT_DATA, dataread, 4);
-
-      raw = ccs.read(CCS811_SLAVEADDR_1, CCS811_RAW_DATA, dataraw, 2);
-
-      state = ccs.read(CCS811_SLAVEADDR_1, CCS811_ERROR_ID, status, 1);
-
-
-      printf("value status byte one is %d, status %d\n", datarx[0], out);
-      printf("read status byte one through four is %d, %d, %d, %d, status %d\n", dataread[0], dataread[1], dataread[2], dataread[3], read);
-      printf("raw data is %d, %d, status %d\n", dataraw[0], dataraw[1], raw);
-      printf("status data is %d, status %d\n", data[0], stat);
-      printf("error data is %d, status %d\n\n", status[0], state);
-
-      Task_sleep(2000 * (1000 / Clock_tickPeriod));
+    Task_sleep(2000 * (1000 / Clock_tickPeriod));
 
   }
 

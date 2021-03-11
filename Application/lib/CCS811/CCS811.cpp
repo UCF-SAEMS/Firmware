@@ -138,41 +138,38 @@ bool ScioSense_CCS811::start( int mode ) {
 }
 
 
-//// Get measurement results from the CCS811, check status via errstat, e.g. ccs811_errstat(errstat)
-////void ScioSense_CCS811::read( uint16_t*eco2, uint16_t*etvoc, uint16_t*errstat,uint16_t*raw) {
-//void ScioSense_CCS811::read() {
-//    uint8_t    ok;
-//    uint8_t buf[8];
-//    uint8_t stat;
-//    wake_up();
-//
-//    if( _appversion<0x2000 ) {
-//        ok = this->read(_slaveaddr, CCS811_STATUS, &stat, 1);
-//        if( ok && stat==CCS811_ERRSTAT_OK ) ok = this->read(_slaveaddr, CCS811_ALG_RESULT_DATA, buf, 8); else buf[5]=0;
-//        buf[4]= stat; // Update STATUS field with correct STATUS
-//    } else {
-//        ok = this->read(_slaveaddr, CCS811_ALG_RESULT_DATA, buf, 8);
-//    }
-//    wake_down();
-//
-//    // Status and error management
-//    uint16_t combined = buf[5]*256+buf[4];
-//    if( combined & ~(CCS811_ERRSTAT_HWERRORS|CCS811_ERRSTAT_OK) ) ok= false; // Unused bits are 1: I2C transfer error
-//    combined &= CCS811_ERRSTAT_HWERRORS|CCS811_ERRSTAT_OK; // Clear all unused bits
-//    if( !(ok == 0) ) combined |= CCS811_ERRSTAT_I2CFAIL;
-//
-//    // Clear ERROR_ID if flags are set
-//    if( combined & CCS811_ERRSTAT_HWERRORS ) {
-//        int err = get_errorid();
-//        if( err == -1 ) combined |= CCS811_ERRSTAT_I2CFAIL; // Propagate I2C error
-//    }
-//
-//    // Outputs
-//    this->_eCO2 = buf[0]*256+buf[1];
-//    this->_eTVOC = buf[2]*256+buf[3];
-//    this->_errstat = combined;
-//    this->_raw = buf[6]*256+buf[7];
-//}
+// Get measurement results from the CCS811, check status via errstat, e.g. ccs811_errstat(errstat)
+void ScioSense_CCS811::sample() {
+    uint8_t    ok;
+    uint8_t buf[8];
+    uint8_t stat;
+
+    if( _appversion<0x2000 ) {
+        ok = this->read(_slaveaddr, CCS811_STATUS, &stat, 1);
+        if( ok && stat==CCS811_ERRSTAT_OK ) ok = this->read(_slaveaddr, CCS811_ALG_RESULT_DATA, buf, 8); else buf[5]=0;
+        buf[4]= stat; // Update STATUS field with correct STATUS
+    } else {
+        ok = this->read(_slaveaddr, CCS811_ALG_RESULT_DATA, buf, 8);
+    }
+
+    // Status and error management
+    uint16_t combined = buf[5]*256+buf[4];
+    if( combined & ~(CCS811_ERRSTAT_HWERRORS|CCS811_ERRSTAT_OK) ) ok= false; // Unused bits are 1: I2C transfer error
+    combined &= CCS811_ERRSTAT_HWERRORS|CCS811_ERRSTAT_OK; // Clear all unused bits
+    if( !(ok == 0) ) combined |= CCS811_ERRSTAT_I2CFAIL;
+
+    // Clear ERROR_ID if flags are set
+    if( combined & CCS811_ERRSTAT_HWERRORS ) {
+        int err = get_errorid();
+        if( err == -1 ) combined |= CCS811_ERRSTAT_I2CFAIL; // Propagate I2C error
+    }
+
+    // Outputs
+    this->_eCO2 = buf[0]*256+buf[1];
+    this->_eTVOC = buf[2]*256+buf[3];
+    this->_errstat = combined;
+    this->_raw = buf[6]*256+buf[7];
+}
 
 
 // Returns a string version of an errstat. Note, each call, this string is updated.
