@@ -49,11 +49,8 @@ bool ScioSense_CCS811::begin( void ) {
 
     // Invoke a SW reset (bring CCS811 in a know state)
     this->write(_slaveaddr, CCS811_SW_RESET, sw_reset, 4);
-    if( !(ok == 0) ) {
-        printf("ccs811: reset failed");
-      goto abort_begin;
-    }
-    //delayMicroseconds(CCS811_WAIT_AFTER_RESET_US);
+
+    Task_sleep(CCS811_WAIT_AFTER_RESET_US / Clock_tickPeriod);
 
     // Check that HW_ID is 0x81
     ok = this->read(_slaveaddr, CCS811_HW_ID, &hw_id, 1);
@@ -105,7 +102,7 @@ bool ScioSense_CCS811::begin( void ) {
       printf("ccs811: Goto app mode failed");
       goto abort_begin;
     }
-    //delayMicroseconds(CCS811_WAIT_AFTER_APPSTART_US);
+    Task_sleep(CCS811_WAIT_AFTER_APPSTART_US / Clock_tickPeriod);
 
     // Check if the switch was successful
     ok = this->read(_slaveaddr, CCS811_STATUS, &status, 1);
@@ -141,41 +138,38 @@ bool ScioSense_CCS811::start( int mode ) {
 }
 
 
-//// Get measurement results from the CCS811, check status via errstat, e.g. ccs811_errstat(errstat)
-////void ScioSense_CCS811::read( uint16_t*eco2, uint16_t*etvoc, uint16_t*errstat,uint16_t*raw) {
-//void ScioSense_CCS811::read() {
-//    uint8_t    ok;
-//    uint8_t buf[8];
-//    uint8_t stat;
-//    wake_up();
-//
-//    if( _appversion<0x2000 ) {
-//        ok = this->read(_slaveaddr, CCS811_STATUS, &stat, 1);
-//        if( ok && stat==CCS811_ERRSTAT_OK ) ok = this->read(_slaveaddr, CCS811_ALG_RESULT_DATA, buf, 8); else buf[5]=0;
-//        buf[4]= stat; // Update STATUS field with correct STATUS
-//    } else {
-//        ok = this->read(_slaveaddr, CCS811_ALG_RESULT_DATA, buf, 8);
-//    }
-//    wake_down();
-//
-//    // Status and error management
-//    uint16_t combined = buf[5]*256+buf[4];
-//    if( combined & ~(CCS811_ERRSTAT_HWERRORS|CCS811_ERRSTAT_OK) ) ok= false; // Unused bits are 1: I2C transfer error
-//    combined &= CCS811_ERRSTAT_HWERRORS|CCS811_ERRSTAT_OK; // Clear all unused bits
-//    if( !(ok == 0) ) combined |= CCS811_ERRSTAT_I2CFAIL;
-//
-//    // Clear ERROR_ID if flags are set
-//    if( combined & CCS811_ERRSTAT_HWERRORS ) {
-//        int err = get_errorid();
-//        if( err == -1 ) combined |= CCS811_ERRSTAT_I2CFAIL; // Propagate I2C error
-//    }
-//
-//    // Outputs
-//    this->_eCO2 = buf[0]*256+buf[1];
-//    this->_eTVOC = buf[2]*256+buf[3];
-//    this->_errstat = combined;
-//    this->_raw = buf[6]*256+buf[7];
-//}
+// Get measurement results from the CCS811, check status via errstat, e.g. ccs811_errstat(errstat)
+void ScioSense_CCS811::sample() {
+    uint8_t    ok;
+    uint8_t buf[8];
+    uint8_t stat;
+
+    if( _appversion<0x2000 ) {
+        ok = this->read(_slaveaddr, CCS811_STATUS, &stat, 1);
+        if( ok && stat==CCS811_ERRSTAT_OK ) ok = this->read(_slaveaddr, CCS811_ALG_RESULT_DATA, buf, 8); else buf[5]=0;
+        buf[4]= stat; // Update STATUS field with correct STATUS
+    } else {
+        ok = this->read(_slaveaddr, CCS811_ALG_RESULT_DATA, buf, 8);
+    }
+
+    // Status and error management
+    uint16_t combined = buf[5]*256+buf[4];
+    if( combined & ~(CCS811_ERRSTAT_HWERRORS|CCS811_ERRSTAT_OK) ) ok= false; // Unused bits are 1: I2C transfer error
+    combined &= CCS811_ERRSTAT_HWERRORS|CCS811_ERRSTAT_OK; // Clear all unused bits
+    if( !(ok == 0) ) combined |= CCS811_ERRSTAT_I2CFAIL;
+
+    // Clear ERROR_ID if flags are set
+    if( combined & CCS811_ERRSTAT_HWERRORS ) {
+        int err = get_errorid();
+        if( err == -1 ) combined |= CCS811_ERRSTAT_I2CFAIL; // Propagate I2C error
+    }
+
+    // Outputs
+    this->_eCO2 = buf[0]*256+buf[1];
+    this->_eTVOC = buf[2]*256+buf[3];
+    this->_errstat = combined;
+    this->_raw = buf[6]*256+buf[7];
+}
 
 
 // Returns a string version of an errstat. Note, each call, this string is updated.
@@ -317,30 +311,6 @@ uint8_t ScioSense_CCS811::read8(uint8_t addr, uint8_t reg)
     return ret;
 }
 
-//uint8_t ScioSense_CCS811::read(uint8_t addr, uint8_t reg, uint8_t *buf, uint8_t num)
-//{
-//    uint8_t pos = 0;
-//    uint8_t result = 0;
-//
-//    //on arduino we need to read in 32 byte chunks
-//    while(pos < num){
-//
-//        uint8_t read_now = min((uint8_t)32, (uint8_t)(num - pos));
-//        Wire.beginTransmission((uint8_t)addr);
-//
-//        Wire.write((uint8_t)reg + pos);
-//        result = Wire.endTransmission();
-//
-//        Wire.requestFrom((uint8_t)addr, read_now);
-//
-//        for(int i=0; i<read_now; i++){
-//            buf[pos] = Wire.read();
-//            pos++;
-//        }
-//    }
-//    return result;
-//}
-
 uint8_t ScioSense_CCS811::read(uint8_t addr, uint8_t reg, uint8_t *regdata, uint8_t num)
 {
 
@@ -356,23 +326,13 @@ uint8_t ScioSense_CCS811::read(uint8_t addr, uint8_t reg, uint8_t *regdata, uint
 
 }
 
-/**************************************************************************/
 
-//uint8_t ScioSense_CCS811::write8(uint8_t addr, uint8_t reg, uint8_t value)
-//{
-//    uint8_t result = this->write(addr, reg, value, 1);
-//    return result;
-//}
+uint8_t ScioSense_CCS811::write8(uint8_t addr, uint8_t reg, uint8_t value)
+{
+    this->write(addr, reg, &value, 1);
+    return 0;
+}
 
-//uint8_t ScioSense_CCS811::write(uint8_t addr, uint8_t reg, uint8_t *buf, uint8_t num)
-//{
-//
-//    Wire.beginTransmission((uint8_t)addr);
-//    Wire.write((uint8_t)reg);
-//    Wire.write((uint8_t *)buf, num);
-//    uint8_t result = Wire.endTransmission();
-//    return result;
-//}
 
 void ScioSense_CCS811::write(uint8_t addr, uint8_t reg, uint8_t *data, uint8_t num)
 {

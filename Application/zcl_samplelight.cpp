@@ -935,12 +935,30 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
       int out;
       uint8_t datarx[1];
       uint8_t voc_data[5];
+  ScioSense_CCS811 ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
+  ccs.begin();
 
-      out = ccs.read(CCS811_SLAVEADDR_1, CCS811_HW_ID, datarx, 1);
+  ccs.start(1);
+
+  uint8_t dataread[4] = {0, 0, 0, 0};
+  uint8_t dataraw[2] = {0, 0};
+
+  for(;;)
+  {
+
+    uint16_t eco2, etvoc;
+    ccs.sample();
+
+    //TODO: additional handling needs to be added to check the CCS811_ERRSTAT_DATA_READY field
+    eco2 = ccs.getECO2();
+    etvoc = ccs.getTVOC();
+    printf("CCS811:\r\n\tstatus: 0x%04x (%s)\r\n", ccs.getErrstat(), ccs.errstat_str(ccs.getErrstat()));
+    printf("\tco2: %10d\r\n\tvoc: %10d\r\n\r\n", eco2, etvoc);
 
       printf("Hardware ID: %d , status %d\n", datarx[0], out);
 
       out = ccs.read(CCS811_SLAVEADDR_1, CCS811_ALG_RESULT_DATA, voc_data, 4);
+    Task_sleep(2000 * (1000 / Clock_tickPeriod));
 
       printf("eCO2: %x \n TVOC: %x\n", voc_data[1], voc_data[2]);
 
