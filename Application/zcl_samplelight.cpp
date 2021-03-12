@@ -159,6 +159,10 @@ extern "C" {
 #include "lib/BME280/bme280_defs.h"
 #include "lib/BME280/bme280_if.h"
 
+#include "lib/ADPD188/ADPD188.h"
+#include "lib/ADPD188/adpd_i2c.h"
+#include "lib/ADPD188/adpd_gpio.h"
+
 /*********************************************************************
  * MACROS
  */
@@ -564,6 +568,10 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   I2C_Params_init(&i2cParams);
   i2cParams.bitRate = I2C_100kHz;
   i2c = I2C_open(CONFIG_I2C_0, &i2cParams);
+
+  adpd188_start(&i2c);
+  struct adpd188_dev adpd_dev;
+
 
   struct bme280_data bme_data;
   struct bme280_dev bme_dev;
