@@ -25,18 +25,22 @@
  * THE SOFTWARE.
  */
 
+#include <ti/sysbios/knl/Clock.h>
+#include <ti/sysbios/knl/Task.h>
+#include <ti/drivers/SPI.h>
+#include "ti_drivers_config.h"
+
+#include <stdint.h>
+
 #ifndef SerialFlash_h_
 #define SerialFlash_h_
-
-#include <Arduino.h>
-#include <SPI.h>
 
 class SerialFlashFile;
 
 class SerialFlashChip
 {
 public:
-	static bool begin(SPIClass& device, uint8_t pin = 6);
+	static bool begin(SPI_Handle& spi);
 	static bool begin(uint8_t pin = 6);
 	static uint32_t capacity(const uint8_t *id);
 	static uint32_t blockSize();

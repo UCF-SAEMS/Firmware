@@ -599,6 +599,495 @@ void getHardwareMac(uint8_t *macAddress)
   macAddress[0] &= ~((1 << 0) | (1 << 1));
 }
 
+#include "lib/SerialFlash/SerialFlash.h"
+
+SerialFlashFile file;
+const unsigned long testIncrement = 4096;
+
+// RawHardwareTest - Check if a SPI Flash chip is compatible
+// with SerialFlash by performing many read and write tests
+// to its memory.
+//
+// The chip should be fully erased before running this test.
+// Use the EraseEverything to do a (slow) full chip erase.
+//
+// Normally you should NOT access the flash memory directly,
+// as this test program does.  You should create files and
+// read and write the files.  File creation allocates space
+// with program & erase boundaries within the chip, to allow
+// reading from any other files while a file is busy writing
+// or erasing (if created as erasable).
+//
+// If you discover an incompatible chip, please report it here:
+// https://github.com/PaulStoffregen/SerialFlash/issues
+// You MUST post the complete output of this program, and
+// the exact part number and manufacturer of the chip.
+
+
+float eraseBytesPerSecond(const unsigned char *id) {
+  if (id[0] == 0x20) return 152000.0; // Micron
+  if (id[0] == 0x01) return 500000.0; // Spansion
+  if (id[0] == 0xEF) return 419430.0; // Winbond
+  if (id[0] == 0xC2) return 279620.0; // Macronix
+  return 320000.0; // guess?
+}
+
+void erase()
+{
+  unsigned long startMillis = ((Clock_getTicks() * Clock_tickPeriod) / 1000);
+  unsigned char id[5];
+  SerialFlash.readID(id);
+  unsigned long size = SerialFlash.capacity(id);
+
+  if (size > 0)
+  {
+    System_printf("\r\nFlash Memory has %u bytes.\r\n", size);
+    System_printf("Erasing ALL Flash Memory:\r\n");
+    // Estimate the (lengthy) wait time.
+    int seconds = (float) size / eraseBytesPerSecond(id) + 0.5;
+    System_printf("  estimated wait: %u seconds.\r\n", seconds);
+    System_printf("  Yes, full chip erase is SLOW!\r\n");
+    System_flush();
+
+    SerialFlash.eraseAll();
+    unsigned long dotMillis = ((Clock_getTicks() * Clock_tickPeriod) / 1000);
+    unsigned char dotcount = 0;
+    while (SerialFlash.ready() == false)
+    {
+      if (((Clock_getTicks() * Clock_tickPeriod) / 1000) - dotMillis > 1000)
+      {
+        dotMillis = dotMillis + 1000;
+        System_printf(".");
+        System_flush();
+        dotcount = dotcount + 1;
+        if (dotcount >= 60)
+        {
+          System_printf("\r\n");
+          dotcount = 0;
+        }
+      }
+    }
+    if (dotcount > 0)
+      System_printf("\r\n");
+    System_printf("Erase completed\r\n");
+    unsigned long elapsed = ((Clock_getTicks() * Clock_tickPeriod) / 1000) - startMillis;
+    System_printf("  actual wait: %u seconds.\r\n", elapsed / 1000ul);
+    System_flush();
+  }
+}
+
+const char * id2chip(const unsigned char *id)
+{
+    if (id[0] == 0xEF) {
+        // Winbond
+        if (id[1] == 0x40) {
+            if (id[2] == 0x14) return "W25Q80BV";
+            if (id[2] == 0x15) return "W25Q16DV";
+            if (id[2] == 0x17) return "W25Q64FV";
+            if (id[2] == 0x18) return "W25Q128FV";
+            if (id[2] == 0x19) return "W25Q256FV";
+        }
+    }
+    if (id[0] == 0x01) {
+        // Spansion
+        if (id[1] == 0x02) {
+            if (id[2] == 0x16) return "S25FL064A";
+            if (id[2] == 0x19) return "S25FL256S";
+            if (id[2] == 0x20) return "S25FL512S";
+        }
+        if (id[1] == 0x20) {
+            if (id[2] == 0x18) return "S25FL127S";
+        }
+    }
+    if (id[0] == 0xC2) {
+        // Macronix
+        if (id[1] == 0x20) {
+            if (id[2] == 0x18) return "MX25L12805D";
+        }
+    }
+    if (id[0] == 0x20) {
+        // Micron
+        if (id[1] == 0xBA) {
+            if (id[2] == 0x20) return "N25Q512A";
+            if (id[2] == 0x21) return "N25Q00AA";
+        }
+        if (id[1] == 0xBB) {
+            if (id[2] == 0x22) return "MT25QL02GC";
+        }
+    }
+    if (id[0] == 0xBF) {
+        // SST
+        if (id[1] == 0x25) {
+            if (id[2] == 0x02) return "SST25WF010";
+            if (id[2] == 0x03) return "SST25WF020";
+            if (id[2] == 0x04) return "SST25WF040";
+            if (id[2] == 0x41) return "SST25VF016B";
+            if (id[2] == 0x4A) return "SST25VF032";
+        }
+        if (id[1] == 0x25) {
+            if (id[2] == 0x01) return "SST26VF016";
+            if (id[2] == 0x02) return "SST26VF032";
+            if (id[2] == 0x43) return "SST26VF064";
+        }
+    }
+    if (id[0] == 0x1F) {
+            // Adesto
+        if (id[1] == 0x89) {
+                if (id[2] == 0x01) return "AT25SF128A";
+            }
+    }
+    return "(unknown chip)";
+}
+
+void print_signature(const unsigned char *data)
+{
+  System_printf("data=");
+  for (unsigned char i = 0; i < 8; i++)
+  {
+    System_printf("%c ", data[i]);
+  }
+  System_printf("\r\n");
+}
+
+void create_signature(unsigned long address, unsigned char *data)
+{
+    data[0] = address >> 24;
+    data[1] = address >> 16;
+    data[2] = address >> 8;
+    data[3] = address;
+    unsigned long hash = 2166136261ul;
+    for (unsigned char i=0; i < 4; i++) {
+        hash ^= data[i];
+        hash *= 16777619ul;
+    }
+    data[4] = hash;
+    data[5] = hash >> 8;
+    data[6] = hash >> 16;
+    data[7] = hash >> 24;
+}
+
+bool equal_signatures(const unsigned char *data1, const unsigned char *data2)
+{
+    for (unsigned char i=0; i < 8; i++) {
+        if (data1[i] != data2[i]) return false;
+    }
+    return true;
+}
+
+bool is_erased(const unsigned char *data, unsigned int len)
+{
+    while (len > 0) {
+        if (*data++ != 255) return false;
+        len = len - 1;
+    }
+    return true;
+}
+
+
+void printbuf(const void *buf, uint32_t len)
+{
+  const uint8_t *p = (const uint8_t *)buf;
+  do {
+    unsigned char b = *p++;
+    System_printf("%x", b >> 4);
+    System_printf("%x ", b & 15);
+    //Serial.printf("%02X", *p++);
+  } while (--len > 0);
+  System_printf("\r\n");
+}
+
+
+
+bool test() {
+  unsigned char buf[256], sig[256], buf2[8];
+  unsigned long address, count, chipsize, blocksize;
+  unsigned long usec;
+  bool first;
+
+  // Read the chip identification
+  System_printf("\r\n");
+  System_printf("Read Chip Identification:\r\n");
+  SerialFlash.readID(buf);
+  System_printf("  JEDEC ID:     %x %x %x\r\n", buf[0], buf[1], buf[2]);
+  System_printf("  Part Number: %s\r\n", id2chip(buf));
+
+  chipsize = SerialFlash.capacity(buf);
+  System_printf("  Memory Size:  %u bytes\r\n", chipsize);
+
+  if (chipsize == 0) return false;
+  blocksize = SerialFlash.blockSize();
+  System_printf("  Block Size:  %u bytes\r\n", blocksize);
+  System_flush();
+
+  // Read the entire chip.  Every test location must be
+  // erased, or have a previously tested signature
+  System_printf("\r\nReading Chip...\r\n");
+  System_flush();
+  memset(buf, 0, sizeof(buf));
+  memset(sig, 0, sizeof(sig));
+  memset(buf2, 0, sizeof(buf2));
+  address = 0;
+  count = 0;
+  first = true;
+  while (address < chipsize) {
+    SerialFlash.read(address, buf, 8);
+    //System_printf("  addr = ");
+    //System_printf(address, HEX);
+    //System_printf(", data = ");
+    //printbuf(buf, 8);
+    create_signature(address, sig);
+    if (is_erased(buf, 8) == false) {
+      if (equal_signatures(buf, sig) == false) {
+        System_printf("  Previous data found at address %u\r\n", address);
+        System_printf("  You must fully erase the chip before this test\r\n");
+        System_printf("  found this: ");
+        printbuf(buf, 8);
+        System_printf("     correct: ");
+        printbuf(sig, 8);
+        System_flush();
+        return false;
+      }
+    } else {
+      count = count + 1; // number of blank signatures
+    }
+    if (first) {
+      address = address + (testIncrement - 8);
+      first = false;
+    } else {
+      address = address + 8;
+      first = true;
+    }
+  }
+
+
+  // Write any signatures that were blank on the original check
+  if (count > 0) {
+    System_printf("\r\n");
+    System_printf("Writing %u signatures\r\n", count);
+    memset(buf, 0, sizeof(buf));
+    memset(sig, 0, sizeof(sig));
+    memset(buf2, 0, sizeof(buf2));
+    address = 0;
+    first = true;
+    while (address < chipsize) {
+      SerialFlash.read(address, buf, 8);
+      if (is_erased(buf, 8)) {
+        create_signature(address, sig);
+        //Serial.printf("write %08X: data: ", address);
+        //printbuf(sig, 8);
+        SerialFlash.write(address, sig, 8);
+        while (!SerialFlash.ready()) ; // wait
+        SerialFlash.read(address, buf, 8);
+        if (equal_signatures(buf, sig) == false) {
+          System_printf("  error writing signature at %u\r\n", address);
+          System_printf("  Read this: ");
+          printbuf(buf, 8);
+          System_printf("  Expected:  ");
+          printbuf(sig, 8);
+          System_flush();
+          return false;
+        }
+      }
+      if (first) {
+        address = address + (testIncrement - 8);
+        first = false;
+      } else {
+        address = address + 8;
+        first = true;
+      }
+    }
+  } else {
+    System_printf("  all signatures present from prior tests\r\n");
+  }
+  System_flush();
+
+  // Read all the signatures again, just to be sure
+  // checks prior writing didn't corrupt any other data
+  System_printf("\r\nDouble Checking All Signatures:\r\n");
+  memset(buf, 0, sizeof(buf));
+  memset(sig, 0, sizeof(sig));
+  memset(buf2, 0, sizeof(buf2));
+  count = 0;
+  address = 0;
+  first = true;
+  while (address < chipsize) {
+    SerialFlash.read(address, buf, 8);
+    create_signature(address, sig);
+    if (equal_signatures(buf, sig) == false) {
+      System_printf("  error in signature at %u\r\n", address);
+      System_printf("  Read this: ");
+      printbuf(buf, 8);
+      System_printf("  Expected:  ");
+      printbuf(sig, 8);
+      System_flush();
+      return false;
+    }
+    count = count + 1;
+    if (first) {
+      address = address + (testIncrement - 8);
+      first = false;
+    } else {
+      address = address + 8;
+      first = true;
+    }
+  }
+  System_printf("  all %u signatures read ok\r\n", count);
+  System_flush();
+
+  // Read pairs of adjacent signatures
+  // check read works across boundaries
+  System_printf("\r\nChecking Signature Pairs\r\n");
+  memset(buf, 0, sizeof(buf));
+  memset(sig, 0, sizeof(sig));
+  memset(buf2, 0, sizeof(buf2));
+  count = 0;
+  address = testIncrement - 8;
+  first = true;
+  while (address < chipsize - 8) {
+    SerialFlash.read(address, buf, 16);
+    create_signature(address, sig);
+    create_signature(address + 8, sig + 8);
+    if (memcmp(buf, sig, 16) != 0) {
+      System_printf("  error in signature pair at %u\r\n", address);
+      System_printf("  Read this: ");
+      printbuf(buf, 16);
+      System_printf("  Expected:  ");
+      printbuf(sig, 16);
+      System_flush();
+      return false;
+    }
+    count = count + 1;
+    address = address + testIncrement;
+  }
+  System_printf("  all %u signatures read ok\r\n", count);
+  System_flush();
+
+  // Write data and read while write in progress
+  System_printf("\r\n");
+  System_printf("Checking Read-While-Write (Program Suspend)");
+  address = 256;
+  while (address < chipsize) { // find a blank space
+    SerialFlash.read(address, buf, 256);
+    if (is_erased(buf, 256)) break;
+    address = address + 256;
+  }
+  if (address >= chipsize) {
+    System_printf("  error, unable to find any blank space!");
+    return false;
+  }
+  for (int i=0; i < 256; i += 8) {
+    create_signature(address + i, sig + i);
+  }
+  System_printf("  write 256 bytes at %u\r\n", address);
+  SerialFlash.write(address, sig, 256);
+  usec = Clock_getTicks ();
+  if (SerialFlash.ready()) {
+    System_printf("  error, chip did not become busy after write");
+    return false;
+  }
+  SerialFlash.read(0, buf2, 8); // read while busy writing
+  while (!SerialFlash.ready()) ; // wait
+  usec = Clock_getTicks() - usec;
+  System_printf("  write time was at %u microseconds\r\n", usec);
+  SerialFlash.read(address, buf, 256);
+  if (memcmp(buf, sig, 256) != 0) {
+    System_printf("  error writing to flash");
+    System_printf("  Read this: ");
+    printbuf(buf, 256);
+    System_printf("  Expected:  ");
+    printbuf(sig, 256);
+    return false;
+  }
+  create_signature(0, sig);
+  if (memcmp(buf2, sig, 8) != 0) {
+    System_printf("  error, incorrect read while writing");
+    System_printf("  Read this: ");
+    printbuf(buf2, 256);
+    System_printf("  Expected:  ");
+    printbuf(sig, 256);
+    return false;
+  }
+  System_printf("  read-while-writing: ");
+  printbuf(buf2, 8);
+  System_printf("  test passed, good read while writing");
+  System_flush();
+
+
+  // Erase a block and read while erase in progress
+  if (chipsize >= 262144 + blocksize + testIncrement) {
+    System_printf("\r\n");
+    System_printf("Checking Read-While-Erase (Erase Suspend)");
+    memset(buf, 0, sizeof(buf));
+    memset(sig, 0, sizeof(sig));
+    memset(buf2, 0, sizeof(buf2));
+    SerialFlash.eraseBlock(262144);
+    usec = Clock_getTicks();
+    Task_sleep(50 / Clock_tickPeriod);
+    if (SerialFlash.ready()) {
+      System_printf("  error, chip did not become busy after erase");
+      return false;
+    }
+    SerialFlash.read(0, buf2, 8); // read while busy writing
+    while (!SerialFlash.ready()) ; // wait
+//    usec = Clock_getTicks() - usec;
+//    System_printf("  erase time was ");
+//    System_printf(usec);
+//    System_printf(" microseconds.");
+    // read all signatures, check ones in this block got
+    // erased, and all the others are still intact
+    address = 0;
+    first = true;
+    while (address < chipsize) {
+      SerialFlash.read(address, buf, 8);
+      if (address >= 262144 && address < 262144 + blocksize) {
+        if (is_erased(buf, 8) == false) {
+          System_printf("  error in erasing at %u\r\n", address);
+          System_printf("  Read this: ");
+          printbuf(buf, 8);
+          return false;
+        }
+      } else {
+        create_signature(address, sig);
+        if (equal_signatures(buf, sig) == false) {
+          System_printf("  error in signature at %u\r\n", address);
+          System_printf("  Read this: ");
+          printbuf(buf, 8);
+          System_printf("  Expected:  ");
+          printbuf(sig, 8);
+          return false;
+        }
+      }
+      if (first) {
+        address = address + (testIncrement - 8);
+        first = false;
+      } else {
+        address = address + 8;
+        first = true;
+      }
+    }
+    System_printf("  erase correctly erased %u bytes\r\n", blocksize);
+    // now check if the data we read during erase is good
+    create_signature(0, sig);
+    if (memcmp(buf2, sig, 8) != 0) {
+      System_printf("  error, incorrect read while erasing");
+      System_printf("  Read this: ");
+      printbuf(buf2, 256);
+      System_printf("  Expected:  ");
+      printbuf(sig, 256);
+      return false;
+    }
+    System_printf("  read-while-erasing: \r\n");
+    printbuf(buf2, 8);
+    System_printf("  test passed, good read while erasing\r\n");
+
+  } else {
+    System_printf("Skip Read-While-Erase, this chip is too small\r\n");
+  }
+
+  return true;
+}
+
+
 void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 {
   // Save and register the function pointers to the NV drivers
@@ -690,6 +1179,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 //  ledboard.init();
 
   mcp.pinMode(MCP_PinMap::ETH_RST, OUTPUT);
+  mcp.pinMode(MCP_PinMap::FONT_CS, OUTPUT);
 
   wizchip_select();
   Task_sleep(100 * (1000 / Clock_tickPeriod));
@@ -704,6 +1194,35 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   mcp.digitalWrite(MCP_PinMap::ETH_RST, true);
 //  delay_cnt(10000);
   Task_sleep(100 * (1000 / Clock_tickPeriod));
+  static SPI_Handle masterSpi;
+  static SPI_Params spiParams;
+  SPI_Params_init(&spiParams);
+  spiParams.bitRate = 8000000; // supports up to 80 Mhz but layout / clock speed will limit this
+  spiParams.dataSize = 8;
+  spiParams.frameFormat = SPI_POL0_PHA0;
+  masterSpi = SPI_open(CONFIG_SPI_W5500, &spiParams);
+
+  SerialFlash.begin(masterSpi);
+
+  unsigned char buf[256], sig[256], buf2[8];
+  unsigned long address, count, chipsize, blocksize;
+  unsigned long usec;
+  bool first;
+
+  System_printf("Read Chip Identification:\r\n");
+  SerialFlash.readID(buf);
+  System_printf("  JEDEC ID:     %x %x %x\r\n", buf[0], buf[1], buf[2]);
+  System_printf("  Part Number: %s\r\n", id2chip(buf));
+  System_flush();
+
+  erase();
+//  test();
+  for (;;)
+  {
+    System_printf(".");
+    System_flush();
+    Task_sleep(500 * (1000 / Clock_tickPeriod));
+  }
 
   System_flush();
   W5500_Init();

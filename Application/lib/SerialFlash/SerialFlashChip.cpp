@@ -26,20 +26,91 @@
  */
 
 #include "SerialFlash.h"
-#include "util/SerialFlash_directwrite.h"
 
-#define CSASSERT()  DIRECT_WRITE_LOW(cspin_basereg, cspin_bitmask)
-#define CSRELEASE() DIRECT_WRITE_HIGH(cspin_basereg, cspin_bitmask)
-#define SPICONFIG   SPISettings(50000000, MSBFIRST, SPI_MODE0)
+#include <ti/drivers/GPIO.h>
+#include <ti/drivers/SPI.h>
+#include "ti_drivers_config.h"
+
+#include <ti/display/Display.h>
+#include "stdio.h"
+#include <xdc/runtime/System.h>
+
+static SPI_Handle masterSpi;
+static SPI_Params spiParams;
+static SPI_Transaction transaction;
+static uint32_t i;
+static bool transferOK;
+static int32_t status;
+
+#include "Application/zcl_samplelight.h"
+
+#include "Application/lib/MCP23017/MCP23017.h"
+#include "Application/myconfig.h"
+
+/* W5500 Call Back Functions */
+void serialfash_select(void)
+{
+  mcpptr->digitalWrite(MCP_PinMap::FONT_CS, false);
+  GPIO_write(GPIO_RTS, false); // SSEL(CS)
+}
+
+void serialfash_deselect(void)
+{
+  mcpptr->digitalWrite(MCP_PinMap::FONT_CS, true);
+  GPIO_write(GPIO_RTS, true); // SSEL(CS)
+}
+
+static void serialfash_readburst(uint8_t *pBuf, uint16_t len)
+{
+
+  transaction.count = len;
+  transaction.txBuf = NULL;
+  transaction.rxBuf = (void*) pBuf;
+
+  transferOK = SPI_transfer(masterSpi, &transaction);
+}
+
+void serialfash_writeburst(uint8_t *pBuf, uint16_t len)
+{
+  transaction.count = len;
+  transaction.txBuf = (void*) pBuf;
+  transaction.rxBuf = NULL;
+
+  transferOK = SPI_transfer(masterSpi, &transaction);
+}
+
+uint8_t serialfash_read()
+{
+  uint8_t rb;
+  serialfash_readburst(&rb, 1);
+  return rb;
+}
+
+static void serialfash_write(uint8_t wb)
+{
+  serialfash_writeburst(&wb, 1);
+}
+
+static uint8_t serialfash_transfer(uint8_t wb)
+{
+  uint8_t rb;
+  transaction.count = 1;
+  transaction.txBuf = (void*) &wb;
+  transaction.rxBuf = &rb;
+
+  transferOK = SPI_transfer(masterSpi, &transaction);
+  return rb;
+}
+
+static void serialfash_transfer16(uint16_t wb)
+{
+  serialfash_writeburst((uint8_t*) &wb, 2);
+//  serialfash_writeburst(((void*) &wb) + 1, 1);
+}
 
 uint16_t SerialFlashChip::dirindex = 0;
 uint8_t SerialFlashChip::flags = 0;
 uint8_t SerialFlashChip::busy = 0;
-
-static volatile IO_REG_TYPE *cspin_basereg;
-static IO_REG_TYPE cspin_bitmask;
-
-static SPIClass& SPIPORT = SPI;
 
 #define FLAG_32BIT_ADDR		0x01	// larger than 16 MByte address
 #define FLAG_STATUS_CMD70	0x02	// requires special busy flag check
@@ -53,23 +124,20 @@ void SerialFlashChip::wait(void)
 	uint32_t status;
 	//Serial.print("wait-");
 	while (1) {
-		SPIPORT.beginTransaction(SPICONFIG);
-		CSASSERT();
+		serialfash_select();
 		if (flags & FLAG_STATUS_CMD70) {
 			// some Micron chips require this different
 			// command to detect program and erase completion
-			SPIPORT.transfer(0x70);
-			status = SPIPORT.transfer(0);
-			CSRELEASE();
-			SPIPORT.endTransaction();
+			serialfash_transfer(0x70);
+			status = serialfash_transfer(0);
+			serialfash_deselect();
 			//Serial.printf("b=%02x.", status & 0xFF);
 			if ((status & 0x80)) break;
 		} else {
 			// all others work by simply reading the status reg
-			SPIPORT.transfer(0x05);
-			status = SPIPORT.transfer(0);
-			CSRELEASE();
-			SPIPORT.endTransaction();
+			serialfash_transfer(0x05);
+			status = serialfash_transfer(0);
+			serialfash_deselect();
 			//Serial.printf("b=%02x.", status & 0xFF);
 			if (!(status & 1)) break;
 		}
@@ -85,21 +153,20 @@ void SerialFlashChip::read(uint32_t addr, void *buf, uint32_t len)
 
 	memset(p, 0, len);
 	f = flags;
-	SPIPORT.beginTransaction(SPICONFIG);
 	b = busy;
 	if (b) {
 		// read status register ... chip may no longer be busy
-		CSASSERT();
+		serialfash_select();
 		if (flags & FLAG_STATUS_CMD70) {
-			SPIPORT.transfer(0x70);
-			status = SPIPORT.transfer(0);
+			serialfash_transfer(0x70);
+			status = serialfash_transfer(0);
 			if ((status & 0x80)) b = 0;
 		} else {
-			SPIPORT.transfer(0x05);
-			status = SPIPORT.transfer(0);
+			serialfash_transfer(0x05);
+			status = serialfash_transfer(0);
 			if (!(status & 1)) b = 0;
 		}
-		CSRELEASE();
+		serialfash_deselect();
 		if (b == 0) {
 			// chip is no longer busy :-)
 			busy = 0;
@@ -107,38 +174,36 @@ void SerialFlashChip::read(uint32_t addr, void *buf, uint32_t len)
 			// TODO: this may not work on Spansion chips
 			// which apparently have 2 different suspend
 			// commands, for program vs erase
-			CSASSERT();
-			SPIPORT.transfer(0x06); // write enable (Micron req'd)
-			CSRELEASE();
-			delayMicroseconds(1);
+			serialfash_select();
+			serialfash_transfer(0x06); // write enable (Micron req'd)
+			serialfash_deselect();
+			Task_sleep(1 / Clock_tickPeriod);
 			cmd = 0x75; //Suspend program/erase for almost all chips
 			// but Spansion just has to be different for program suspend!
 			if ((f & FLAG_DIFF_SUSPEND) && (b == 1)) cmd = 0x85;
-			CSASSERT();
-			SPIPORT.transfer(cmd); // Suspend command
-			CSRELEASE();
+			serialfash_select();
+			serialfash_transfer(cmd); // Suspend command
+			serialfash_deselect();
 			if (f & FLAG_STATUS_CMD70) {
 				// Micron chips don't actually suspend until flags read
-				CSASSERT();
-				SPIPORT.transfer(0x70);
+				serialfash_select();
+				serialfash_transfer(0x70);
 				do {
-					status = SPIPORT.transfer(0);
+					status = serialfash_transfer(0);
 				} while (!(status & 0x80));
-				CSRELEASE();
+				serialfash_deselect();
 			} else {
-				CSASSERT();
-				SPIPORT.transfer(0x05);
+				serialfash_select();
+				serialfash_transfer(0x05);
 				do {
-					status = SPIPORT.transfer(0);
+					status = serialfash_transfer(0);
 				} while ((status & 0x01));
-				CSRELEASE();
+				serialfash_deselect();
 			}
 		} else {
 			// chip is busy with an operation that can not suspend
-			SPIPORT.endTransaction();	// is this a good idea?
 			wait();			// should we wait without ending
 			b = 0;			// the transaction??
-			SPIPORT.beginTransaction(SPICONFIG);
 		}
 	}
 	do {
@@ -148,34 +213,33 @@ void SerialFlashChip::read(uint32_t addr, void *buf, uint32_t len)
 				rdlen = 0x2000000 - (addr & 0x1FFFFFF);
 			}
 		}
-		CSASSERT();
+		serialfash_select();
 		// TODO: FIFO optimize....
 		if (f & FLAG_32BIT_ADDR) {
-			SPIPORT.transfer(0x03);
-			SPIPORT.transfer16(addr >> 16);
-			SPIPORT.transfer16(addr);
+			serialfash_transfer(0x03);
+			serialfash_transfer16(addr >> 16);
+			serialfash_transfer16(addr);
 		} else {
-			SPIPORT.transfer16(0x0300 | ((addr >> 16) & 255));
-			SPIPORT.transfer16(addr);
+			serialfash_transfer16(0x0300 | ((addr >> 16) & 255));
+			serialfash_transfer16(addr);
 		}
-		SPIPORT.transfer(p, rdlen);
-		CSRELEASE();
+		serialfash_readburst(p, rdlen);
+		serialfash_deselect();
 		p += rdlen;
 		addr += rdlen;
 		len -= rdlen;
 	} while (len > 0);
 	if (b) {
-		CSASSERT();
-		SPIPORT.transfer(0x06); // write enable (Micron req'd)
-		CSRELEASE();
-		delayMicroseconds(1);
+		serialfash_select();
+		serialfash_transfer(0x06); // write enable (Micron req'd)
+		serialfash_deselect();
+		Task_sleep(1 / Clock_tickPeriod);
 		cmd = 0x7A;
 		if ((f & FLAG_DIFF_SUSPEND) && (b == 1)) cmd = 0x8A;
-		CSASSERT();
-		SPIPORT.transfer(cmd); // Resume program/erase
-		CSRELEASE();
+		serialfash_select();
+		serialfash_transfer(cmd); // Resume program/erase
+		serialfash_deselect();
 	}
-	SPIPORT.endTransaction();
 }
 
 void SerialFlashChip::write(uint32_t addr, const void *buf, uint32_t len)
@@ -186,32 +250,30 @@ void SerialFlashChip::write(uint32_t addr, const void *buf, uint32_t len)
 	 //Serial.printf("WR: addr %08X, len %d\n", addr, len);
 	do {
 		if (busy) wait();
-		SPIPORT.beginTransaction(SPICONFIG);
-		CSASSERT();
+		serialfash_select();
 		// write enable command
-		SPIPORT.transfer(0x06);
-		CSRELEASE();
+		serialfash_transfer(0x06);
+		serialfash_deselect();
 		max = 256 - (addr & 0xFF);
 		pagelen = (len <= max) ? len : max;
 		 //Serial.printf("WR: addr %08X, pagelen %d\n", addr, pagelen);
-		delayMicroseconds(1); // TODO: reduce this, but prefer safety first
-		CSASSERT();
+		Task_sleep(1 / Clock_tickPeriod); // TODO: reduce this, but prefer safety first
+		serialfash_select();
 		if (flags & FLAG_32BIT_ADDR) {
-			SPIPORT.transfer(0x02); // program page command
-			SPIPORT.transfer16(addr >> 16);
-			SPIPORT.transfer16(addr);
+			serialfash_transfer(0x02); // program page command
+			serialfash_transfer16(addr >> 16);
+			serialfash_transfer16(addr);
 		} else {
-			SPIPORT.transfer16(0x0200 | ((addr >> 16) & 255));
-			SPIPORT.transfer16(addr);
+			serialfash_transfer16(0x0200 | ((addr >> 16) & 255));
+			serialfash_transfer16(addr);
 		}
 		addr += pagelen;
 		len -= pagelen;
 		do {
-			SPIPORT.transfer(*p++);
+			serialfash_transfer(*p++);
 		} while (--pagelen > 0);
-		CSRELEASE();
+		serialfash_deselect();
 		busy = 4;
-		SPIPORT.endTransaction();
 	} while (len > 0);
 }
 
@@ -234,32 +296,29 @@ void SerialFlashChip::eraseAll()
 		if (die_index >= die_count) return; // all dies erased :-)
 		uint8_t die_size = 2;  // in 16 Mbyte units
 		if (id[2] == 0x22) die_size = 8;
-		SPIPORT.beginTransaction(SPICONFIG);
-		CSASSERT();
-		SPIPORT.transfer(0x06); // write enable command
-		CSRELEASE();
-		 delayMicroseconds(1);
-		CSASSERT();
+		serialfash_select();
+		serialfash_transfer(0x06); // write enable command
+		serialfash_deselect();
+		 Task_sleep(1 / Clock_tickPeriod);
+		serialfash_select();
 		// die erase command
-		SPIPORT.transfer(0xC4);
-		SPIPORT.transfer16((die_index * die_size) << 8);
-		SPIPORT.transfer16(0x0000);
-		CSRELEASE();
+		serialfash_transfer(0xC4);
+		serialfash_transfer16((die_index * die_size) << 8);
+		serialfash_transfer16(0x0000);
+		serialfash_deselect();
 		 //Serial.printf("Micron erase begin\n");
 		flags |= (die_index + 1) << 6;
 	} else {
 		// All other chips support the bulk erase command
-		SPIPORT.beginTransaction(SPICONFIG);
-		CSASSERT();
+		serialfash_select();
 		// write enable command
-		SPIPORT.transfer(0x06);
-		CSRELEASE();
-		 delayMicroseconds(1);
-		CSASSERT();
+		serialfash_transfer(0x06);
+		serialfash_deselect();
+		 Task_sleep(1 / Clock_tickPeriod);
+		serialfash_select();
 		// bulk erase command
-		SPIPORT.transfer(0xC7);
-		CSRELEASE();
-		SPIPORT.endTransaction();
+		serialfash_transfer(0xC7);
+		serialfash_deselect();
 	}
 	busy = 3;
 }
@@ -268,22 +327,20 @@ void SerialFlashChip::eraseBlock(uint32_t addr)
 {
 	uint8_t f = flags;
 	if (busy) wait();
-	SPIPORT.beginTransaction(SPICONFIG);
-	CSASSERT();
-	SPIPORT.transfer(0x06); // write enable command
-	CSRELEASE();
-	 delayMicroseconds(1);
-	CSASSERT();
+	serialfash_select();
+	serialfash_transfer(0x06); // write enable command
+	serialfash_deselect();
+	 Task_sleep(1 / Clock_tickPeriod);
+	serialfash_select();
 	if (f & FLAG_32BIT_ADDR) {
-		SPIPORT.transfer(0xD8);
-		SPIPORT.transfer16(addr >> 16);
-		SPIPORT.transfer16(addr);
+		serialfash_transfer(0xD8);
+		serialfash_transfer16(addr >> 16);
+		serialfash_transfer16(addr);
 	} else {
-		SPIPORT.transfer16(0xD800 | ((addr >> 16) & 255));
-		SPIPORT.transfer16(addr);
+		serialfash_transfer16(0xD800 | ((addr >> 16) & 255));
+		serialfash_transfer16(addr);
 	}
-	CSRELEASE();
-	SPIPORT.endTransaction();
+	serialfash_deselect();
 	busy = 2;
 }
 
@@ -292,23 +349,20 @@ bool SerialFlashChip::ready()
 {
 	uint32_t status;
 	if (!busy) return true;
-	SPIPORT.beginTransaction(SPICONFIG);
-	CSASSERT();
+	serialfash_select();
 	if (flags & FLAG_STATUS_CMD70) {
 		// some Micron chips require this different
 		// command to detect program and erase completion
-		SPIPORT.transfer(0x70);
-		status = SPIPORT.transfer(0);
-		CSRELEASE();
-		SPIPORT.endTransaction();
+		serialfash_transfer(0x70);
+		status = serialfash_transfer(0);
+		serialfash_deselect();
 		//Serial.printf("ready=%02x\n", status & 0xFF);
 		if ((status & 0x80) == 0) return false;
 	} else {
 		// all others work by simply reading the status reg
-		SPIPORT.transfer(0x05);
-		status = SPIPORT.transfer(0);
-		CSRELEASE();
-		SPIPORT.endTransaction();
+		serialfash_transfer(0x05);
+		status = serialfash_transfer(0);
+		serialfash_deselect();
 		//Serial.printf("ready=%02x\n", status & 0xFF);
 		if ((status & 1)) return false;
 	}
@@ -334,23 +388,19 @@ bool SerialFlashChip::ready()
 //#define FLAG_DIFF_SUSPEND	0x04	// uses 2 different suspend commands
 //#define FLAG_256K_BLOCKS	0x10	// has 256K erase blocks
 
-bool SerialFlashChip::begin(SPIClass& device, uint8_t pin)
-{
-	SPIPORT = device;
-	return begin(pin);
-}
+bool SerialFlashChip::begin(SPI_Handle& device) {
 
-bool SerialFlashChip::begin(uint8_t pin)
-{
+  masterSpi = device;
+
 	uint8_t id[5];
 	uint8_t f;
 	uint32_t size;
 
-	cspin_basereg = PIN_TO_BASEREG(pin);
-	cspin_bitmask = PIN_TO_BITMASK(pin);
-	SPIPORT.begin();
-	pinMode(pin, OUTPUT);
-	CSRELEASE();
+//	cspin_basereg = PIN_TO_BASEREG(pin);
+//	cspin_bitmask = PIN_TO_BITMASK(pin);
+//	SPIPORT.begin();
+//	pinMode(pin, OUTPUT);
+	serialfash_deselect();
 	readID(id);
 	if ((id[0]==0 && id[1]==0 && id[2]==0) || (id[0]==255 && id[1]==255 && id[2]==255)) {
 		return false;
@@ -360,23 +410,21 @@ bool SerialFlashChip::begin(uint8_t pin)
 	if (size > 16777216) {
 		// more than 16 Mbyte requires 32 bit addresses
 		f |= FLAG_32BIT_ADDR;
-		SPIPORT.beginTransaction(SPICONFIG);
 		if (id[0] == ID0_SPANSION) {
 			// spansion uses MSB of bank register
-			CSASSERT();
-			SPIPORT.transfer16(0x1780); // bank register write
-			CSRELEASE();
+			serialfash_select();
+			serialfash_transfer16(0x1780); // bank register write
+			serialfash_deselect();
 		} else {
 			// micron & winbond & macronix use command
-			CSASSERT();
-			SPIPORT.transfer(0x06); // write enable
-			CSRELEASE();
-			delayMicroseconds(1);
-			CSASSERT();
-			SPIPORT.transfer(0xB7); // enter 4 byte addr mode
-			CSRELEASE();
+			serialfash_select();
+			serialfash_transfer(0x06); // write enable
+			serialfash_deselect();
+			Task_sleep(1 / Clock_tickPeriod);
+			serialfash_select();
+			serialfash_transfer(0xB7); // enter 4 byte addr mode
+			serialfash_deselect();
 		}
-		SPIPORT.endTransaction();
 		if (id[0] == ID0_MICRON) f |= FLAG_MULTI_DIE;
 	}
 	if (id[0] == ID0_SPANSION) {
@@ -401,52 +449,45 @@ bool SerialFlashChip::begin(uint8_t pin)
 void SerialFlashChip::sleep()
 {
 	if (busy) wait();
-	SPIPORT.beginTransaction(SPICONFIG);
-	CSASSERT();
-	SPIPORT.transfer(0xB9); // Deep power down command
-	CSRELEASE();
+	serialfash_select();
+	serialfash_transfer(0xB9); // Deep power down command
+	serialfash_deselect();
 }
 
 void SerialFlashChip::wakeup()
 {
-	SPIPORT.beginTransaction(SPICONFIG);
-	CSASSERT();
-	SPIPORT.transfer(0xAB); // Wake up from deep power down command
-	CSRELEASE();
+	serialfash_select();
+	serialfash_transfer(0xAB); // Wake up from deep power down command
+	serialfash_deselect();
 }
 
 void SerialFlashChip::readID(uint8_t *buf)
 {
 	if (busy) wait();
-	SPIPORT.beginTransaction(SPICONFIG);
-	CSASSERT();
-	SPIPORT.transfer(0x9F);
-	buf[0] = SPIPORT.transfer(0); // manufacturer ID
-	buf[1] = SPIPORT.transfer(0); // memory type
-	buf[2] = SPIPORT.transfer(0); // capacity
+	serialfash_select();
+	serialfash_transfer(0x9F);
+	buf[0] = serialfash_transfer(0); // manufacturer ID
+	buf[1] = serialfash_transfer(0); // memory type
+	buf[2] = serialfash_transfer(0); // capacity
 	if (buf[0] == ID0_SPANSION) {
-		buf[3] = SPIPORT.transfer(0); // ID-CFI
-		buf[4] = SPIPORT.transfer(0); // sector size
+		buf[3] = serialfash_transfer(0); // ID-CFI
+		buf[4] = serialfash_transfer(0); // sector size
 	}
-	CSRELEASE();
-	SPIPORT.endTransaction();
+	serialfash_deselect();
 	//Serial.printf("ID: %02X %02X %02X\n", buf[0], buf[1], buf[2]);
 }
 
 void SerialFlashChip::readSerialNumber(uint8_t *buf) //needs room for 8 bytes
 {
 	if (busy) wait();
-	SPIPORT.beginTransaction(SPICONFIG);
-	CSASSERT();
-	SPIPORT.transfer(0x4B);			
-	SPIPORT.transfer16(0);	
-	SPIPORT.transfer16(0);
+	serialfash_select();
+	serialfash_transfer(0x4B);
+	serialfash_transfer16(0);
+	serialfash_transfer16(0);
 	for (int i=0; i<8; i++) {		
-		buf[i] = SPIPORT.transfer(0);
+		buf[i] = serialfash_transfer(0);
 	}
-	CSRELEASE();
-	SPIPORT.endTransaction();
-//	Serial.printf("Serial Number: %02X %02X %02X %02X %02X %02X %02X %02X\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
+	serialfash_deselect();
 }
 
 uint32_t SerialFlashChip::capacity(const uint8_t *id)

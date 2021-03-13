@@ -26,7 +26,8 @@ const ECDSA1   = ECDSA.addInstance();
 const ECJPAKE  = scripting.addModule("/ti/drivers/ECJPAKE");
 const ECJPAKE1 = ECJPAKE.addInstance();
 const GPIO     = scripting.addModule("/ti/drivers/GPIO", {}, false);
-const GPIO3    = GPIO.addInstance();
+const GPIO1    = GPIO.addInstance();
+const GPIO4    = GPIO.addInstance();
 const I2C      = scripting.addModule("/ti/drivers/I2C", {}, false);
 const I2C1     = I2C.addInstance();
 const NVS      = scripting.addModule("/ti/drivers/NVS");
@@ -83,13 +84,20 @@ ECDSA1.$name = "CONFIG_ECDSA_0";
 
 ECJPAKE1.$name = "CONFIG_ECJPAKE_0";
 
-GPIO3.$name                         = "GPIO_ETH_CS";
-GPIO3.pull                          = "Pull Up";
-GPIO3.mode                          = "Output";
-GPIO3.initialOutputState            = "High";
-GPIO3.gpioPin.$assignAllowConflicts = "boosterpack.40";
-GPIO3.pinInstance.$name             = "CONFIG_PIN_7";
-scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad LED Green on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",GPIO3.gpioPin);
+GPIO1.$name                         = "GPIO_ETH_CS";
+GPIO1.pull                          = "Pull Up";
+GPIO1.mode                          = "Output";
+GPIO1.initialOutputState            = "High";
+GPIO1.gpioPin.$assignAllowConflicts = "boosterpack.40";
+GPIO1.pinInstance.$name             = "CONFIG_PIN_7";
+scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad LED Green on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",GPIO1.gpioPin);
+
+GPIO4.$name              = "GPIO_RTS";
+GPIO4.mode               = "Output";
+GPIO4.initialOutputState = "High";
+GPIO4.pull               = "Pull Up";
+GPIO4.gpioPin.$assign    = "boosterpack.36";
+GPIO4.pinInstance.$name  = "CONFIG_PIN_11";
 
 I2C1.$name                = "CONFIG_I2C_0";
 I2C1.i2c.sdaPin.$assign   = "boosterpack.10";
