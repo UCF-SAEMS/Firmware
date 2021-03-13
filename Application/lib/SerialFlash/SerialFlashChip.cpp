@@ -104,8 +104,8 @@ static uint8_t serialfash_transfer(uint8_t wb)
 
 static void serialfash_transfer16(uint16_t wb)
 {
-  serialfash_writeburst((uint8_t*) &wb, 2);
-//  serialfash_writeburst(((void*) &wb) + 1, 1);
+  serialfash_write(wb >> 8);      // MSB
+  serialfash_write(wb & 0x00FF);  // LSB
 }
 
 uint16_t SerialFlashChip::dirindex = 0;
