@@ -50,13 +50,13 @@ static int32_t status;
 /* W5500 Call Back Functions */
 void serialfash_select(void)
 {
-  mcpptr->digitalWrite(MCP_PinMap::FONT_CS, false);
+//  mcpptr->digitalWrite(MCP_PinMap::FONT_CS, false);
   GPIO_write(GPIO_RTS, false); // SSEL(CS)
 }
 
 void serialfash_deselect(void)
 {
-  mcpptr->digitalWrite(MCP_PinMap::FONT_CS, true);
+//  mcpptr->digitalWrite(MCP_PinMap::FONT_CS, true);
   GPIO_write(GPIO_RTS, true); // SSEL(CS)
 }
 

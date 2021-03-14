@@ -964,7 +964,7 @@ bool test() {
 
   // Write data and read while write in progress
   System_printf("\r\n");
-  System_printf("Checking Read-While-Write (Program Suspend)");
+  System_printf("Checking Read-While-Write (Program Suspend)\r\n");
   address = 256;
   while (address < chipsize) { // find a blank space
     SerialFlash.read(address, buf, 256);
@@ -980,14 +980,14 @@ bool test() {
   }
   System_printf("  write 256 bytes at %u\r\n", address);
   SerialFlash.write(address, sig, 256);
-  usec = Clock_getTicks ();
+  usec = Clock_getTicks() * Clock_tickPeriod;
   if (SerialFlash.ready()) {
     System_printf("  error, chip did not become busy after write");
     return false;
   }
   SerialFlash.read(0, buf2, 8); // read while busy writing
   while (!SerialFlash.ready()) ; // wait
-  usec = Clock_getTicks() - usec;
+  usec = Clock_getTicks() * Clock_tickPeriod - usec;
   System_printf("  write time was at %u microseconds\r\n", usec);
   SerialFlash.read(address, buf, 256);
   if (memcmp(buf, sig, 256) != 0) {
@@ -1016,12 +1016,12 @@ bool test() {
   // Erase a block and read while erase in progress
   if (chipsize >= 262144 + blocksize + testIncrement) {
     System_printf("\r\n");
-    System_printf("Checking Read-While-Erase (Erase Suspend)");
+    System_printf("Checking Read-While-Erase (Erase Suspend)\r\n");
     memset(buf, 0, sizeof(buf));
     memset(sig, 0, sizeof(sig));
     memset(buf2, 0, sizeof(buf2));
     SerialFlash.eraseBlock(262144);
-    usec = Clock_getTicks();
+    usec = Clock_getTicks() * Clock_tickPeriod;
     Task_sleep(50 / Clock_tickPeriod);
     if (SerialFlash.ready()) {
       System_printf("  error, chip did not become busy after erase");
@@ -1029,10 +1029,8 @@ bool test() {
     }
     SerialFlash.read(0, buf2, 8); // read while busy writing
     while (!SerialFlash.ready()) ; // wait
-//    usec = Clock_getTicks() - usec;
-//    System_printf("  erase time was ");
-//    System_printf(usec);
-//    System_printf(" microseconds.");
+    usec = Clock_getTicks() * Clock_tickPeriod - usec;
+    System_printf("  erase time was at %u microseconds\r\n", usec);
     // read all signatures, check ones in this block got
     // erased, and all the others are still intact
     address = 0;
@@ -1076,7 +1074,7 @@ bool test() {
       printbuf(sig, 256);
       return false;
     }
-    System_printf("  read-while-erasing: \r\n");
+    System_printf("  read-while-erasing: ");
     printbuf(buf2, 8);
     System_printf("  test passed, good read while erasing\r\n");
 
