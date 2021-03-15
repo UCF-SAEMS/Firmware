@@ -63,6 +63,7 @@
 
 #include "unistd.h"
 #include <stdint.h>
+#include <stdio.h>
 #include <stddef.h>
 #include <unistd.h>
 #include <ti/drivers/I2C.h>

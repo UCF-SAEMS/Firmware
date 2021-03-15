@@ -571,7 +571,31 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   adpd188_start(&i2c);
   struct adpd188_dev adpd_dev;
+  adpd188_dev *adpd_smoke;
+  adpd_smoke = &adpd_dev;
+  struct adpd188_init_param adpd_param;
+  enum adpd188_mode adpd_mode;
+//  adpd_dev = { 0 };
+//  adpd_param = { 0 };
+  adpd188_init(&adpd_smoke, &adpd_param);
 
+for(;;)
+{
+  uint16_t rxreg[1];
+  uint16_t moderet[1];
+  uint32_t ret;
+  uint32_t wri;
+
+  ret = adpd188_reg_read(&adpd_dev, ADPD188_REG_DEVID, rxreg);
+
+  wri = adpd188_mode_set(&adpd_dev, ADPD188_NORMAL);
+
+  adpd188_reg_read(&adpd_dev, ADPD188_REG_MODE, moderet);
+
+  printf("reg val %d, mode success %d, value mode return %d, mode set %d \n", rxreg[0], ret, moderet[0], wri);
+
+  Task_sleep(2000 * (1000 / Clock_tickPeriod));
+}
 
   struct bme280_data bme_data;
   struct bme280_dev bme_dev;
