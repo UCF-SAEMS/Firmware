@@ -295,7 +295,10 @@ int debounce = 0;
 int motion_state = 0;
 uint16_t CCS811_co2 = 0;
 uint16_t SCD30_co2 = 0;
+
 static uint16_t zclSampleLight_BdbCommissioningModes;
+uint8_t OnOff = 0xFE; // initialize to invalid
+uint8_t LightLevel = 0xFE;
 
 Display_Handle display;
 
@@ -309,6 +312,8 @@ static Clock_Handle SensorDataClkHandle;
 static Clock_Struct SensorDataClkStruct;
 static Clock_Handle MotionSensorClkHandle;
 static Clock_Struct MotionSensorClkStruct;
+static Clock_Handle OnOffClkHandle;
+static Clock_Struct OnOffClkStruct;
 
 struct bme280_data bme_data;
 struct bme280_dev bme_dev;
@@ -654,8 +659,8 @@ static void SAEMS_OnOffCB( uint8_t cmd )
 {
   afIncomingMSGPacket_t *pPtr = zcl_getRawAFMsg();
 
-  uint8_t OnOff = 0xFE; // initialize to invalid
-  uint8_t LightLevel = 0xFE;
+  OnOff = 0xFE; // initialize to invalid
+  LightLevel = 0xFE;
 
   zclSampleLight_DstAddr.addr.shortAddr = pPtr->srcAddr.addr.shortAddr;
 
@@ -677,16 +682,12 @@ static void SAEMS_OnOffCB( uint8_t cmd )
     return;
   }
 
-  if(zclSampleLight_getCurrentLevelAttribute() > 0)
-    LightLevel = 0;
-  else if(zclSampleLight_getCurrentLevelAttribute() == 0)
-    LightLevel = 127;
-
-zclSampleLight_updateCurrentLevelAttribute(LightLevel);
-zclSampleLight_updateOnOffAttribute(OnOff);
-
-ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
-
+  if(zclSampleLight_getCurrentLevelAttribute() > 0){
+    UtilTimer_start( &OnOffClkStruct );
+  }
+  else if(zclSampleLight_getCurrentLevelAttribute() == 0){
+    UtilTimer_start( &OnOffClkStruct );
+  }
 }
 
 #ifdef ZCL_LEVEL_CTRL
@@ -748,7 +749,6 @@ static void SAEMS_getSensorData(void){
     printf("Gathering Sensor Data...\n");
     // Using driver functions, get data from I2C lines and store in the new struct
     // TO-DO:
-    
     bme280_if_get_all_sensor_data(&bme_data, &bme_dev);
     char buffer[500];
 
@@ -875,6 +875,86 @@ static void SAEMS_MotionSensorCB(UArg a0){
     sensorDataNew.occupancy = 0;
     printf("Setting Occupancy: %d\t", sensorDataNew.occupancy);
     motion_state = 0;
+  }
+}
+
+/*****************************************************************
+ * @fn      SAEMS_OnOff_Timeout_Callback
+ * 
+ * @brief   Timeout handler function for ramping up/down ON-OFF COMMANDS
+ * 
+ * @param   a0 - this parameter is not used
+ * 
+ * @return  none
+ */
+static void SAEMS_OnOff_Timeout_Callback( UArg a0 ){
+  
+  (void)a0; // Parameter is not used
+
+  appServiceTaskEvents |= SAMPLELIGHT_LEVEL_CTRL_EVT;
+
+  // Wake up the application thread when it waits for clock event
+  Semaphore_post(appSemHandle);
+}
+
+/*****************************************************************
+ * @fn      SAEMS_OnOff_Ramp
+ * 
+ * @brief   Function that ramps the light level On or Off based on the command 
+ * 
+ * @param   none
+ * 
+ * @return  none*
+ */
+static void SAEMS_OnOff_Ramp( void ){
+  printf("SAMES_OnOff_Ramp()\n");
+
+  // Received ON_OFF_ON COMMAND
+  if( OnOff == LIGHT_ON ){
+  printf("In the LIGHT_ON branch...\n");
+  // get the current light level, increment, update the light level, and send to LED Board
+  LightLevel = zclSampleLight_getCurrentLevelAttribute();
+  printf("> Current Level: %d\n", LightLevel);
+  LightLevel += 10;
+  printf("> New Level: %d\n", LightLevel);
+  zclSampleLight_updateCurrentLevelAttribute( LightLevel );
+  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
+
+    // Re-start the timer until the condition has been met to stop ramping
+    if( zclSampleLight_getCurrentLevelAttribute() >= 127 ){
+      // CONDITION MET: Do not restart the timer
+      printf("CONDITION MET!!\n");
+      zclSampleLight_updateOnOffAttribute(OnOff);
+    }else if( zclSampleLight_getCurrentLevelAttribute() < 127 ){
+      // CONDITION NOT MET: Restart the timer
+      printf("Condition NOT MET: Restarting the timer!!\n");
+      UtilTimer_start( &OnOffClkStruct );
+    }
+
+  }
+
+  // Received ON_OFF_OFF COMMAND
+  else if( OnOff == LIGHT_OFF ){
+  printf("In the LIGHT_OFF branch...\n");
+  // get the current light level, decrement, update the light level, and send to LED Board
+  LightLevel = zclSampleLight_getCurrentLevelAttribute();
+  printf("> Current Level: %d\n", LightLevel);
+  LightLevel -= 10;
+  printf("> New Level: %d\n", LightLevel);
+  zclSampleLight_updateCurrentLevelAttribute( LightLevel );
+  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
+
+    // Re-start the timer until the condition has been met to stop ramping
+    if( zclSampleLight_getCurrentLevelAttribute() <= 25  ){
+      // CONDITION MET: Do not restart the timer
+      zclSampleLight_updateOnOffAttribute(OnOff);
+      printf("CONDITION MET!!\n");
+    }else if( zclSampleLight_getCurrentLevelAttribute() > 25 ){
+      // CONDITION NOT MET: Restart the timer
+      printf("Condition NOT MET: Restarting the timer!!\n");
+      UtilTimer_start( &OnOffClkStruct );
+    }
+
   }
 }
 // ================================================================================================================
@@ -1302,7 +1382,6 @@ static void zclSampleLight_initializeClocks(void)
 
     // ==============================================================
     // =================== I2C Data Transfer Clock ==================
-    // ==============================================================
     SensorDataClkHandle = UtilTimer_construct(
     &SensorDataClkStruct,
     SAEMS_SensorsCallback,
@@ -1312,11 +1391,19 @@ static void zclSampleLight_initializeClocks(void)
 
     // =============================================================
     // =================== Motion Detection Clock ==================
-    // =============================================================
     MotionSensorClkHandle = UtilTimer_construct(
     &MotionSensorClkStruct,
     SAEMS_MotionSensorCB,
     3000,
+    0, false, 0); 
+    // =============================================================
+
+    // =============================================================
+    // ==================== On-Off Ramping Clock ===================
+    OnOffClkHandle = UtilTimer_construct(
+    &OnOffClkStruct,
+    SAEMS_OnOff_Timeout_Callback,
+    500,
     0, false, 0); 
     // =============================================================
 }
@@ -1397,51 +1484,39 @@ static void zclSampleLight_process_loop(void)
         if(Semaphore_pend(appSemHandle, BIOS_WAIT_FOREVER ))
         {
             /* Retrieve the response message */
-            if((pMsg = (zstackmsg_genericReq_t*) OsalPort_msgReceive( appServiceTaskId )) != NULL)
-            {
-
+            if((pMsg = (zstackmsg_genericReq_t*) OsalPort_msgReceive( appServiceTaskId )) != NULL){
                 zclSampleLight_processZStackMsgs(pMsg);
-#ifdef PER_TEST
-                PERTest_processZStackMsg(pMsg);
-#endif
                 // Free any separately allocated memory
                 msgProcessed = Zstackapi_freeIndMsg(pMsg);
             }
-
-            if((msgProcessed == FALSE) && (pMsg != NULL))
-            {
+            if((msgProcessed == FALSE) && (pMsg != NULL)){
                 OsalPort_msgDeallocate((uint8_t*)pMsg);
             }
 
-#ifdef PER_TEST
-            PERTest_process();
-#endif
+            if( appServiceTaskEvents & SAMPLELIGHT_LEVEL_CTRL_EVT ){
+              SAEMS_OnOff_Ramp();
+              appServiceTaskEvents &= ~SAMPLELIGHT_LEVEL_CTRL_EVT;
+            }
 
-#ifndef CUI_DISABLE
-            //Process the events that the UI may have
-            zclsampleApp_ui_event_loop();
-#endif
-            if( appServiceTaskEvents & SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT )
-            {
+            if( appServiceTaskEvents & SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT ){
               printf("Entering the Data Transfer functions\n");
               SAEMS_getSensorData();
               SAEMS_updateSensorData();
-                  // Reset and restart the timer
-                  UtilTimer_setTimeout(SensorDataClkHandle, SENSOR_UPDATE_TIMEOUT);
-                  UtilTimer_start(&SensorDataClkStruct);
+              
+              // Reset and restart the timer
+              UtilTimer_setTimeout(SensorDataClkHandle, SENSOR_UPDATE_TIMEOUT);
+              UtilTimer_start(&SensorDataClkStruct);
+              
               appServiceTaskEvents &= ~SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT;
             }
 
-            if ( appServiceTaskEvents & SAMPLEAPP_DISCOVERY_TIMEOUT_EVT )
-            {
+            if ( appServiceTaskEvents & SAMPLEAPP_DISCOVERY_TIMEOUT_EVT ){
               discoveryInprogress = FALSE;
-
               appServiceTaskEvents &= ~SAMPLEAPP_DISCOVERY_TIMEOUT_EVT;
             }
 
 #if defined (BDB_TL_TARGET) || defined (BDB_TL_INITIATOR)
-            if(appServiceTaskEvents & TL_BDB_FB_EVT)
-            {
+            if(appServiceTaskEvents & TL_BDB_FB_EVT){
                 zstack_bdbStartCommissioningReq_t zstack_bdbStartCommissioningReq;
                 zstack_bdbStartCommissioningReq.commissioning_mode = BDB_COMMISSIONING_MODE_FINDING_BINDING;
                 Zstackapi_bdbStartCommissioningReq(appServiceTaskId, &zstack_bdbStartCommissioningReq);
@@ -1449,98 +1524,6 @@ static void zclSampleLight_process_loop(void)
             }
 #endif // defined ( BDB_TL_TARGET ) || (BDB_TL_INITIATOR)
 
-#if defined(USE_DMM) && defined(BLE_START)
-            if(appServiceTaskEvents & SAMPLEAPP_PROV_CONNECT_EVT)
-            {
-                zstack_bdbStartCommissioningReq_t zstack_bdbStartCommissioningReq;
-                zstack_bdbStartCommissioningReq.commissioning_mode = zclSampleLight_BdbCommissioningModes;
-                Zstackapi_bdbStartCommissioningReq(appServiceTaskId, &zstack_bdbStartCommissioningReq);
-                appServiceTaskEvents &= ~SAMPLEAPP_PROV_CONNECT_EVT;
-            }
-            if(appServiceTaskEvents & SAMPLEAPP_PROV_DISCONNECT_EVT)
-            {
-                Zstackapi_bdbResetLocalActionReq(appServiceTaskId);
-                appServiceTaskEvents &= ~SAMPLEAPP_PROV_DISCONNECT_EVT;
-            }
-
-            if(appServiceTaskEvents & SAMPLEAPP_POLICY_UPDATE_EVT)
-            {
-                static uint32_t stackState = DMMPOLICY_ZB_UNINIT;
-
-                RemoteDisplay_updateJoinState((RemoteDisplay_DevState)provState);
-
-                // If uninitialized
-                if( (provState < zstack_DevState_INIT) && (stackState != DMMPOLICY_ZB_UNINIT) )
-                {
-                    DMMPolicy_updateApplicationState(DMMPolicy_StackRole_Zigbee, DMMPOLICY_ZB_UNINIT);
-                }
-                // If provisioning
-                else if( (((provState > zstack_DevState_INIT) && (provState < zstack_DevState_DEV_ROUTER)) ||
-                          (provState > zstack_DevState_DEV_ROUTER) ) &&
-                         (stackState != DMMPOLICY_ZB_PROVISIONING) )
-                {
-                    DMMPolicy_updateApplicationState(DMMPolicy_StackRole_Zigbee, DMMPOLICY_ZB_PROVISIONING);
-                }
-                // If connected
-                else if( (provState == zstack_DevState_DEV_ROUTER) &&
-                         (stackState != DMMPOLICY_ZB_CONNECTED) )
-                {
-                    DMMPolicy_updateApplicationState(DMMPolicy_StackRole_Zigbee, DMMPOLICY_ZB_CONNECTED);
-                }
-
-                appServiceTaskEvents &= ~SAMPLEAPP_POLICY_UPDATE_EVT;
-            }
-
-            // Read most recent application attributes
-            if(appServiceTaskEvents & SAMPLEAPP_SYNC_ATTR_EVT)
-            {
-                zstack_sysConfigReadReq_t readReq = {0};
-                zstack_sysConfigReadRsp_t pRsp = {0};
-
-                readReq.panID = true;
-                readReq.chanList = true;
-
-                if (Zstackapi_sysConfigReadReq(appServiceTaskId, &readReq, &pRsp) == zstack_ZStatusValues_ZSuccess) {
-
-                    if (pRsp.has_panID == true) {
-                        provPanId = pRsp.panID;
-                    }
-                    if (pRsp.has_chanList == true) {
-                        provChanMask = pRsp.chanList;
-                    }
-                    // Synchronize new data with BLE application
-                    RemoteDisplay_updateProvProfData();
-                }
-                appServiceTaskEvents &= ~SAMPLEAPP_SYNC_ATTR_EVT;
-            }
-#endif // defined(USE_DMM) && defined(BLE_START)
-
-#if !defined (DISABLE_GREENPOWER_BASIC_PROXY) && (ZG_BUILD_RTR_TYPE)
-            if(appServiceTaskEvents & SAMPLEAPP_PROCESS_GP_DATA_SEND_EVT)
-            {
-                if(zgGP_ProxyCommissioningMode == TRUE)
-                {
-                  zcl_gpSendCommissioningNotification();
-                }
-                else
-                {
-                  zcl_gpSendNotification();
-                }
-                appServiceTaskEvents &= ~SAMPLEAPP_PROCESS_GP_DATA_SEND_EVT;
-            }
-
-            if(appServiceTaskEvents & SAMPLEAPP_PROCESS_GP_EXPIRE_DUPLICATE_EVT)
-            {
-                gp_expireDuplicateFiltering();
-                appServiceTaskEvents &= ~SAMPLEAPP_PROCESS_GP_EXPIRE_DUPLICATE_EVT;
-            }
-
-            if(appServiceTaskEvents & SAMPLEAPP_PROCESS_GP_TEMP_MASTER_EVT)
-            {
-                gp_returnOperationalChannel();
-                appServiceTaskEvents &= ~SAMPLEAPP_PROCESS_GP_TEMP_MASTER_EVT;
-            }
-#endif
 
 #if ZG_BUILD_ENDDEVICE_TYPE
             if ( appServiceTaskEvents & SAMPLEAPP_END_DEVICE_REJOIN_EVT )
@@ -1552,58 +1535,6 @@ static void zclSampleLight_process_loop(void)
               appServiceTaskEvents &= ~SAMPLEAPP_END_DEVICE_REJOIN_EVT;
             }
 #endif
-#if defined (Z_POWER_TEST)
-            if ( appServiceTaskEvents & SAMPLEAPP_POWER_TEST_START_EVT )
-            {
-              zstack_bdbStartCommissioningReq_t zstack_bdbStartCommissioningReq;
-#if defined (POWER_TEST_POLL_ACK) || defined (POWER_TEST_POLL_DATA)
-              // assuming we are ZC in this test, we must create + open the network
-              zstack_bdbStartCommissioningReq.commissioning_mode = BDB_COMMISSIONING_MODE_NWK_FORMATION | BDB_COMMISSIONING_MODE_NWK_STEERING;
-              Zstackapi_bdbStartCommissioningReq(appServiceTaskId,&zstack_bdbStartCommissioningReq);
-#elif defined (POWER_TEST_DATA_ACK)
-              // assuming we are ZC in this test, we must create + open the network + start finding&binding
-              zstack_bdbStartCommissioningReq.commissioning_mode = BDB_COMMISSIONING_MODE_NWK_FORMATION | BDB_COMMISSIONING_MODE_NWK_STEERING | BDB_COMMISSIONING_MODE_FINDING_BINDING;
-              Zstackapi_bdbStartCommissioningReq(appServiceTaskId,&zstack_bdbStartCommissioningReq);
-#endif
-              appServiceTaskEvents &= ~SAMPLEAPP_POWER_TEST_START_EVT;
-            }
-#if defined (POWER_TEST_POLL_DATA)
-            if ( appServiceTaskEvents & SAMPLEAPP_POWER_TEST_ZCL_DATA_EVT )
-            {
-              static uint8_t theMessageData[] = {"\0\0\30POWER TEST!!!!!"};
-              static uint8_t transID = 0;
-              extern uint8_t zcl_TransID;
-
-              zstack_getZCLFrameCounterRsp_t pRsp;
-              Zstackapi_getZCLFrameCounterReq(appServiceTaskId, &pRsp);
-
-              theMessageData[1] = transID++;
-
-              zstack_afDataReq_t pReq;
-              pReq.dstAddr.addrMode = zstack_AFAddrMode_SHORT;
-              pReq.dstAddr.addr.shortAddr = powerTestZEDAddr;
-              pReq.dstAddr.endpoint = 0xAF;
-              pReq.pRelayList = NULL;
-              pReq.n_relayList = 0;
-              pReq.srcEndpoint = SAMPLELIGHT_ENDPOINT;
-              pReq.clusterID = 0xBEEF;
-              pReq.transID = &zcl_TransID;
-              pReq.options.ackRequest = FALSE;
-              pReq.options.apsSecurity = FALSE;
-              pReq.options.limitConcentrator = FALSE;
-              pReq.options.skipRouting = FALSE;
-              pReq.options.suppressRouteDisc = FALSE;
-              pReq.options.wildcardProfileID = FALSE;
-              pReq.radius = AF_DEFAULT_RADIUS;
-              pReq.n_payload = sizeof(theMessageData);
-              pReq.pPayload = theMessageData;
-
-              Zstackapi_AfDataReq(appServiceTaskId, &pReq);
-
-              appServiceTaskEvents &= ~SAMPLEAPP_POWER_TEST_ZCL_DATA_EVT;
-            }
-#endif
-#endif // Z_POWER_TEST
         }
     }
 }
@@ -1615,211 +1546,6 @@ static void tl_BDBFindingBindingCb(void)
 }
 #endif // defined ( BDB_TL_TARGET ) || defined (BDB_TL_INITIATOR)
 
-#if defined(USE_DMM) && defined(BLE_START)
-static void provisionConnectCb(void)
-{
-    appServiceTaskEvents |= SAMPLEAPP_PROV_CONNECT_EVT;
-
-    // Wake up the application thread when it waits for clock event
-    Semaphore_post(appSemHandle);
-}
-
-static void provisionDisconnectCb(void)
-{
-    appServiceTaskEvents |= SAMPLEAPP_PROV_DISCONNECT_EVT;
-
-    // Wake up the application thread when it waits for clock event
-    Semaphore_post(appSemHandle);
-}
-
-/** @brief  Set provisioning callback functions
- *
- *  @param  ProvisionAttr_t  Remote display attribute value to set
- *  @param  value  pointer to data from remote display application
- *  @param  len  length of data from remote display application
- */
-static void setProvisioningCb(RemoteDisplay_ProvisionAttr_t provisioningAttr,
-    void *const value, uint8_t len)
-{
-
-    uint8_t *byteArr = (uint8_t *)value;
-    switch(provisioningAttr)
-    {
-        case ProvisionAttr_PanId:
-        {
-            provPanId = Util_buildUint16(byteArr[1], byteArr[0]);
-
-            zstack_sysConfigWriteReq_t writeReq = {0};
-            writeReq.has_panID = true;
-            writeReq.panID = provPanId;
-            Zstackapi_sysConfigWriteReq(appServiceTaskId, &writeReq);
-            break;
-        }
-        case ProvisionAttr_SensorChannelMask:
-        {
-            provChanMask = Util_buildUint32(byteArr[3], byteArr[2],
-                                              byteArr[1], byteArr[0]);
-
-            zstack_bdbSetAttributesReq_t req = {0};
-            req.bdbPrimaryChannelSet = provChanMask;
-            req.has_bdbPrimaryChannelSet = true;
-            Zstackapi_bdbSetAttributesReq(appServiceTaskId, &req);
-            break;
-        }
-        case ProvisionAttr_ExtPanId:
-            //Not supported for ZigBee
-        case ProvisionAttr_Freq:
-            //Not supported for ZigBee
-        case ProvisionAttr_FFDAddr:
-            //Not supported for ZigBee
-        case ProvisionAttr_NtwkKey:
-            //Not supported for ZigBee
-        default:
-            // Attribute not found
-            break;
-        }
-}
-
-/** @brief  Get provisioning callback functions
- *
- *  @param  ProvisionAttr_t  Remote display attribute value to set
- *
- *  @return  uint8_t  Current value of data present in 15.4 application
- */
-static void getProvisioningCb(RemoteDisplay_ProvisionAttr_t provisioningAttr, void *value, uint8_t len)
-{
-    switch(provisioningAttr)
-    {
-        case ProvisionAttr_ProvState:
-        {
-            *(uint8_t *)value = provState;
-            break;
-        }
-        // The PAN ID and Channel mask are reversed in byte order below
-        // to allow the Light Blue BLE phone application to parse this data properly.
-        case ProvisionAttr_PanId:
-        {
-            ((uint8_t *)value)[0] = Util_hiUint16(provPanId);
-            ((uint8_t *)value)[1] = Util_loUint16(provPanId);
-            break;
-        }
-        case ProvisionAttr_SensorChannelMask:
-        {
-            ((uint8_t *)value)[0] = Util_breakUint32(provChanMask, 3);
-            ((uint8_t *)value)[1] = Util_breakUint32(provChanMask, 2);
-            ((uint8_t *)value)[2] = Util_breakUint32(provChanMask, 1);
-            ((uint8_t *)value)[3] = Util_breakUint32(provChanMask, 0);
-            break;
-        }
-        case ProvisionAttr_Freq:
-            //Not supported for ZigBee
-        case ProvisionAttr_ExtPanId:
-            //Not supported for ZigBee
-        case ProvisionAttr_FFDAddr:
-            //Not supported for ZigBee
-        case ProvisionAttr_NtwkKey:
-            //Not supported for ZigBee
-        default:
-            // Attribute not found
-            break;
-    }
-}
-
-/** @brief  Set remote display callback functions
- *
- *  @param  lightAttr  Remote display attribute value to set
- *  @param  value  pointer to data from remote display application
- *  @param  len  length of data from remote display application
- */
-static void setLightAttrCb(RemoteDisplayLightAttr_t lightAttr,
-    void *const value, uint8_t len)
-{
-    switch(lightAttr)
-    {
-        case LightAttr_Light_OnOff:
-        {
-#ifndef Z_POWER_TEST
-            if(*((uint8_t*)value) == 0)
-            {
-                SAEMS_OnOffCB(COMMAND_ON_OFF_OFF);
-            }
-            else
-            {
-                SAEMS_OnOffCB(COMMAND_ON_OFF_ON);
-            }
-#endif
-            break;
-        }
-        case LightAttr_Target_Addr_Type:
-        {
-            /* Not supported for sample light */
-            break;
-        }
-        case LightAttr_Target_Addr:
-        {
-            /* Not supported for sample light */
-            break;
-        }
-        default:
-            return;
-    }
-}
-
-/** @brief  Get remote display callback functions
- *
- *  @param  lightAttr  Remote display attribute value to set
- *
- *  @return  void *  Current value of data present in 15.4 application
- */
-static void getLightAttrCb(RemoteDisplayLightAttr_t lightAttr, void *value, uint8_t len)
-{
-    switch(lightAttr)
-    {
-        case LightAttr_Light_OnOff:
-        {
-#ifdef ZCL_LEVEL_CTRL
-            ((uint8_t *)value)[0] = (zclSampleLight_LevelChangeCmd == LEVEL_CHANGED_BY_ON_CMD) ?  LIGHT_ON : LIGHT_OFF;
-#else
-            ((uint8_t *)value)[0] = zclSampleLight_getOnOffAttribute() ? LIGHT_ON : LIGHT_OFF;
-#endif
-            break;
-        }
-        case LightAttr_Target_Addr_Type:
-        {
-            /* Not supported for sample light */
-            break;
-        }
-        case LightAttr_Target_Addr:
-        {
-            /* Not supported for sample light */
-            break;
-        }
-        default:
-            // Attribute not found
-            break;
-        }
-}
-
-/*******************************************************************************
- * @fn      zclSampleLight_processSyncAttrTimeoutCallback
- *
- * @brief   Timeout handler function
- *
- * @param   a0 - ignored
- *
- * @return  none
- */
-static void zclSampleLight_processSyncAttrTimeoutCallback(UArg a0)
-{
-    (void)a0; // Parameter is not used
-
-    appServiceTaskEvents |= SAMPLEAPP_SYNC_ATTR_EVT;
-
-    // Wake up the application thread when it waits for clock event
-    Semaphore_post(appSemHandle);
-}
-
-#endif //defined(USE_DMM) && defined(BLE_START)
 
 /*********************************************************************
  * @fn      zclSampleLight_IdentifyQueryRspCB
