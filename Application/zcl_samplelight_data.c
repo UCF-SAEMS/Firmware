@@ -115,11 +115,11 @@
 #define HUMIDITY_UPDATE_THRESHOLD 0001
 #define PRESSURE_UPDATE_THRESHOLD 0001
 #define OCCUPANCY_UPDATE_THRESHOLD 1
-#define CARBONMONOXIDE_UPDATE_THRESHOLD 0010
-#define CARBONDIOXIDE_UPDATE_THRESHOLD 0010
+#define CARBONMONOXIDE_UPDATE_THRESHOLD 0001
+#define CARBONDIOXIDE_UPDATE_THRESHOLD 0001
 #define SMOKE_UPDATE_THRESHOLD 0010
 #define VOC_UPDATE_THRESHOLD 0001
-#define PARTICULATES_UPDATE_THRESHOLD 0010
+#define PARTICULATES_UPDATE_THRESHOLD 0001
 
 
 /*********************************************************************
@@ -684,6 +684,47 @@ CONST zclAttrRec_t zclSampleLight_Attrs[] =
     }
   },
 // ------------------------------------------------------------
+  {
+    0x0407,
+    { // >>>> PARTICULATES 1.0 Attribute <<< 
+      0x0000,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.particulates_1
+    }
+  },
+// ------------------------------------------------------------
+  {
+    0x0407,
+    { // >>>> PARTICULATES 2.5 Attribute <<< 
+      0x0001,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.particulates_2
+    }
+  },
+// ------------------------------------------------------------
+  {
+    0x0407,
+    { // >>>> PARTICULATES 4.0 Attribute <<< 
+      0x0002,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.particulates_4
+    }
+  },
+// ------------------------------------------------------------
+  {
+    0x0407,
+    { // >>>> PARTICULATES 10.0 Attribute <<< 
+      0x0003,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.particulates_10
+    }
+  },
+// ------------------------------------------------------------
+
 #endif // ZCL_MS
 // ===================================================================================================================
 // =========================================== SAEMS COLOR CONTROL CLUSTERS ==========================================
@@ -733,7 +774,8 @@ const cId_t zclSampleLight_InClusterList[] =
   ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL,
   ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
   ZCL_CLUSTER_ID_MS_RELATIVE_HUMIDITY,
-  ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT
+  ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT,
+  0x0407
 };
 
 #define ZCLSAMPLELIGHT_MAX_INCLUSTERS   (sizeof(zclSampleLight_InClusterList) / sizeof(zclSampleLight_InClusterList[0]))
@@ -993,12 +1035,12 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     }
 
     // Update particulates value
-    if (abs(sensorDataCurrent.particulates - sensorDataNew.particulates) > PARTICULATES_UPDATE_THRESHOLD) {
-        sensorDataCurrent.particulates = sensorDataNew.particulates;
-        printf("Particulates updated to %u\n", (unsigned int)sensorDataCurrent.particulates);
+    if (abs(sensorDataCurrent.particulates_10 - sensorDataNew.particulates_10) > PARTICULATES_UPDATE_THRESHOLD) {
+        sensorDataCurrent.particulates_10 = sensorDataNew.particulates_10;
+        printf("Particulates updated to %u\n", (unsigned int)sensorDataCurrent.particulates_10);
 
-        Req.attrID = ATTRID_TEMPERATURE_MEASUREMENT_MIN_MEASURED_VALUE;
-        Req.cluster = ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT;
+        Req.attrID = 0x0003;
+        Req.cluster = 0x0407;
         Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
     }
 

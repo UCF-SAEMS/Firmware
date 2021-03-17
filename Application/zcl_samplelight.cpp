@@ -748,6 +748,7 @@ static void SAEMS_SensorsCallback(UArg a0){
   Semaphore_post(appSemHandle);
 }
 
+int state = 0;
 /*************************************************************************
  * @fn      SAEMS_getSensorData
  *
@@ -761,6 +762,8 @@ static void SAEMS_getSensorData(void){
     printf("Gathering Sensor Data...\n");
     // Using driver functions, get data from I2C lines and store in the new struct
     // TO-DO:
+    //--------------------------------------------------------------------------------------
+    // Temperature, Humidity, Pressure
     bme280_if_get_all_sensor_data(&bme_data, &bme_dev);
     char buffer[500];
 
@@ -802,10 +805,20 @@ static void SAEMS_getSensorData(void){
     sprintf(buffer, "CCS811: %u, %u\r\n", sensorDataNew.voc, sensorDataNew.carbondioxide);
     Display_printf(display, 4, 0, "%s", buffer);
     //--------------------------------------------------------------------------------------
+    // MOTION 
     buffer[0] = '\0';
     sprintf(buffer, "MOTION: %d\r\n", GPIO_read(PIR_SENSOR) );
     Display_printf(display, 5, 0, "%s", buffer);
-
+    //--------------------------------------------------------------------------------------
+    // Particulates
+    if(state == 0){
+      sensorDataNew.particulates_10 = 5;
+      state = 1;
+    }else if(state == 1){
+      sensorDataNew.particulates_10 = 50;
+      state = 0;
+    }
+    //--------------------------------------------------------------------------------------
     // The following is sample data...
     #ifdef ZCL_MEASURE_TESTING
     if(measure_Testing == 0){

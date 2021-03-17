@@ -167,6 +167,10 @@ typedef struct SAEMS_SensorData_t {
     int16_t smoke;
     int16_t voc;
     int16_t particulates;
+    int16_t particulates_1;
+    int16_t particulates_2;
+    int16_t particulates_4;
+    int16_t particulates_10;
 } SAEMS_SensorData;
 
 extern SAEMS_SensorData sensorDataCurrent;
