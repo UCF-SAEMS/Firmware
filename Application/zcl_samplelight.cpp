@@ -627,6 +627,18 @@ ZStatus_t SAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturatio
   // Pass the 'new hue and saturation' to the LED Board Driver Function
   ledboard.hsi(scaledHue(), scaledSaturation(), scaledIntensity());
 
+  zstack_bdbRepChangedAttrValueReq_t ReqHue;
+        ReqHue.attrID = ATTRID_COLOR_CONTROL_CURRENT_HUE;
+        ReqHue.cluster = ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL;
+        ReqHue.endpoint = SAMPLELIGHT_ENDPOINT;
+  Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&ReqHue);
+
+  zstack_bdbRepChangedAttrValueReq_t ReqSaturation;
+        ReqSaturation.attrID = ATTRID_COLOR_CONTROL_CURRENT_HUE;
+        ReqSaturation.cluster = ZCL_CLUSTER_ID_LIGHTING_COLOR_CONTROL;
+        ReqSaturation.endpoint = SAMPLELIGHT_ENDPOINT;
+  Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&ReqSaturation);
+  
   return ZSuccess;
 }
 #endif // ZCL_LIGHTING
