@@ -170,6 +170,8 @@ extern "C" {
 /*********************************************************************
  * GLOBAL VARIABLES
  */
+Semaphore_Struct semSPIStruct;
+Semaphore_Handle semSPIHandle;  // Main SPI communication mutex
 
 
 /*********************************************************************
@@ -1179,12 +1181,6 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   mcp.pinMode(MCP_PinMap::ETH_RST, OUTPUT);
   mcp.pinMode(MCP_PinMap::FONT_CS, OUTPUT);
 
-  wizchip_select();
-  Task_sleep(100 * (1000 / Clock_tickPeriod));
-  wizchip_deselect();
-  Task_sleep(100 * (1000 / Clock_tickPeriod));
-
-
   /* W5500 Chip Reset */
   mcp.digitalWrite(MCP_PinMap::ETH_RST, false);
 //  delay_cnt(5000);.
@@ -1199,6 +1195,14 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   spiParams.dataSize = 8;
   spiParams.frameFormat = SPI_POL0_PHA0;
   masterSpi = SPI_open(CONFIG_SPI_W5500, &spiParams);
+
+  Semaphore_Params semParams;
+
+  /* Construct a Semaphore object to be use as a resource lock, inital count 1 */
+  Semaphore_Params_init(&semParams);
+  Semaphore_construct(&semSPIStruct, 1, &semParams);
+  /* Obtain instance handle */
+  semSPIHandle = Semaphore_handle(&semSPIStruct);
 
   SerialFlash.begin(masterSpi);
 
@@ -1223,7 +1227,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   }
 
   System_flush();
-  W5500_Init();
+  W5500_Init(masterSpi);
 
   System_flush();
 

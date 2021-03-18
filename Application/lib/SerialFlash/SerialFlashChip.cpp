@@ -34,6 +34,8 @@
 #include <ti/display/Display.h>
 #include "stdio.h"
 #include <xdc/runtime/System.h>
+#include <ti/sysbios/BIOS.h>
+#include <ti/sysbios/knl/Semaphore.h>
 
 static SPI_Handle masterSpi;
 static SPI_Params spiParams;
@@ -50,6 +52,9 @@ static int32_t status;
 /* W5500 Call Back Functions */
 void serialfash_select(void)
 {
+  // wait for spi bus and lock
+  Semaphore_pend(semSPIHandle, BIOS_WAIT_FOREVER);
+
 //  mcpptr->digitalWrite(MCP_PinMap::FONT_CS, false);
   GPIO_write(GPIO_RTS, false); // SSEL(CS)
 }
@@ -58,6 +63,9 @@ void serialfash_deselect(void)
 {
 //  mcpptr->digitalWrite(MCP_PinMap::FONT_CS, true);
   GPIO_write(GPIO_RTS, true); // SSEL(CS)
+
+  // unlock spi bus
+  Semaphore_post(semSPIHandle);
 }
 
 static void serialfash_readburst(uint8_t *pBuf, uint16_t len)

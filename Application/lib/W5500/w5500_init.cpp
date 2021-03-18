@@ -10,6 +10,9 @@
 #include "stdio.h"
 #include <xdc/runtime/System.h>
 
+#include <ti/sysbios/BIOS.h>
+#include <ti/sysbios/knl/Semaphore.h>
+
 static SPI_Handle masterSpi;
 static SPI_Params spiParams;
 static SPI_Transaction transaction;
@@ -25,12 +28,18 @@ static int32_t status;
 /* W5500 Call Back Functions */
 void wizchip_select(void)
 {
+  // wait for spi bus and lock
+  Semaphore_pend(semSPIHandle, BIOS_WAIT_FOREVER);
+
   GPIO_write(GPIO_ETH_CS, false); // SSEL(CS)
 }
 
 void wizchip_deselect(void)
 {
   GPIO_write(GPIO_ETH_CS, true); // SSEL(CS)
+
+  // unlock spi bus
+  Semaphore_post(semSPIHandle);
 }
 
 static void wizchip_readburst(uint8_t *pBuf, uint16_t len)
@@ -114,14 +123,15 @@ void Net_Conf(wiz_NetInfo netinfo)
   ctlnetwork(CN_SET_NETINFO, (void*) &netinfo);
 }
 
-void W5500_Init()
+void W5500_Init(SPI_Handle& device)
 {
 
-  SPI_Params_init(&spiParams);
-  spiParams.bitRate = 8000000; // supports up to 80 Mhz but layout / clock speed will limit this
-  spiParams.dataSize = 8;
-  spiParams.frameFormat = SPI_POL0_PHA0;
-  masterSpi = SPI_open(CONFIG_SPI_W5500, &spiParams);
+//  SPI_Params_init(&spiParams);
+//  spiParams.bitRate = 8000000; // supports up to 80 Mhz but layout / clock speed will limit this
+//  spiParams.dataSize = 8;
+//  spiParams.frameFormat = SPI_POL0_PHA0;
+//  masterSpi = SPI_open(CONFIG_SPI_W5500, &spiParams);
+masterSpi = device;
 
   //    VERSIONR 0x0039 should be 0x04
   uint8_t buf[] = { 0x00, 0x39, 0b0000000 };
