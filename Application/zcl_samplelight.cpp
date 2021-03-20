@@ -812,10 +812,10 @@ static void SAEMS_getSensorData(void){
     //--------------------------------------------------------------------------------------
     // Particulates
     if(state == 0){
-      sensorDataNew.particulates_10 = 5;
+      sensorDataNew.particulates_2 = 5;
       state = 1;
     }else if(state == 1){
-      sensorDataNew.particulates_10 = 50;
+      sensorDataNew.particulates_2 = 50;
       state = 0;
     }
     //--------------------------------------------------------------------------------------

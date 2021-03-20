@@ -94,6 +94,17 @@ extern "C"
 #define SAMPLEAPP_CONFIG_SYNC_TIMEOUT     500
 #define SENSOR_UPDATE_TIMEOUT             5000
 
+#define SAEMS_PARTICULATES_CLUSTER_ID 0x0407
+#define SAEMS_ATTRID_PARTICULATES_MASS_1 0x0000
+#define SAEMS_ATTRID_PARTICULATES_MASS_2 0x0001
+#define SAEMS_ATTRID_PARTICULATES_MASS_4 0x0002
+#define SAEMS_ATTRID_PARTICULATES_MASS_10 0x0003
+#define SAEMS_ATTRID_PARTICULATES_NUMBER_1 0x0004
+#define SAEMS_ATTRID_PARTICULATES_NUMBER_2 0x0005
+#define SAEMS_ATTRID_PARTICULATES_NUMBER_4 0x0006
+#define SAEMS_ATTRID_PARTICULATES_NUMBER_10 0x0007
+
+
 // Update structures
 #define ZCL_DATA_UPDATE
 
@@ -118,6 +129,7 @@ extern "C"
   extern bdbTLDeviceInfo_t tlSampleLight_DeviceInfo;
 #endif
 
+extern afAddrType_t zclSampleLight_DstAddr;
 
 extern SimpleDescriptionFormat_t zclSampleLight_SimpleDesc;
 

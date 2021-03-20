@@ -215,6 +215,8 @@ uint16_t zclSampleLight_ScenesCurrentGroup = 0;
 uint8_t  zclSampleLight_ScenesValid = 0;
 uint8_t  zclSampleLight_ScenesNameSupport = 0;
 
+int ParticulatesSeqNum = 0;
+
 // >>>>>>>>>>>>>>>>>>>>>>> IF MORE COMMANDS ARE NEEDED, SHOULD BE ADDED HERE <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 #if ZCL_DISCOVER
@@ -948,6 +950,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
 #ifdef ZCL_DATA_UPDATE
   void SAEMS_updateSensorData(void){
 
+    zclReportCmd_t pReportCmd;
     zstack_bdbRepChangedAttrValueReq_t Req;
     Req.endpoint = SAMPLELIGHT_ENDPOINT;
 
@@ -1035,13 +1038,24 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     }
 
     // Update particulates value
-    if (abs(sensorDataCurrent.particulates_10 - sensorDataNew.particulates_10) > PARTICULATES_UPDATE_THRESHOLD) {
-        sensorDataCurrent.particulates_10 = sensorDataNew.particulates_10;
-        printf("Particulates updated to %u\n", (unsigned int)sensorDataCurrent.particulates_10);
+    if (abs(sensorDataCurrent.particulates_2 - sensorDataNew.particulates_2) > PARTICULATES_UPDATE_THRESHOLD) {
+        sensorDataCurrent.particulates_2 = sensorDataNew.particulates_2;
+        printf("Particulates updated to %u\n", (unsigned int)sensorDataCurrent.particulates_2);
 
-        Req.attrID = 0x0003;
-        Req.cluster = 0x0407;
-        Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
+        pReportCmd.numAttr = 1;
+        pReportCmd.attrList[0].attrID = SAEMS_ATTRID_PARTICULATES_MASS_2;
+        pReportCmd.attrList[0].dataType = ZCL_DATATYPE_UINT16;
+        pReportCmd.attrList[0].attrData = sensorDataCurrent.particulates_2;
+
+        zcl_SendReportCmdEx(
+          SAMPLELIGHT_ENDPOINT, 
+          &zclSampleLight_DstAddr,
+          SAEMS_PARTICULATES_CLUSTER_ID,
+          &pReportCmd,
+          ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, 
+          ParticulatesSeqNum++,
+          TRUE);
+
     }
 
     printf("***************************************\n");
