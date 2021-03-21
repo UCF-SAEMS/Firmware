@@ -316,6 +316,7 @@ static Clock_Struct OnOffClkStruct;
 
 struct bme280_data bme_data;
 struct bme280_dev bme_dev;
+struct sps30_measurement m;
 
 LMP91000 lmp = LMP91000(i2c, LMP91000_I2C_ADDRESS);
 ScioSense_CCS811 ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
@@ -810,21 +811,39 @@ static void SAEMS_getSensorData(void){
     Display_printf(display, 5, 0, "%s", buffer);
     //--------------------------------------------------------------------------------------
     // Particulates
-    if(state == 0){
-      sensorDataNew.pm1mass = 5;
-      sensorDataNew.pm2mass = 10;
-      sensorDataNew.pm4mass = 15;
-      sensorDataNew.pm4mass = 20;
-      
-      state = 1;
-    }else if(state == 1){
-      sensorDataNew.pm1mass = 50;
-      sensorDataNew.pm2mass = 55;
-      sensorDataNew.pm4mass = 60;
-      sensorDataNew.pm4mass = 65;
-      
-      state = 0;
+    int16_t ret;
+
+    while (sps30_probe() != 0)
+    {
+      printf("SPS sensor probing failed\n");
+      sensirion_sleep_usec(1000000); /* wait 1s */
     }
+    printf("SPS sensor probing successful\n");
+  
+    ret = sps30_start_measurement();
+    if (ret < 0)
+      printf("error starting measurement\n");
+    printf("measurements started\n");
+  
+      sensirion_sleep_usec(SPS30_MEASUREMENT_DURATION_USEC); /* wait 1s */
+      ret = sps30_read_measurement(&m);
+      if (ret < 0)
+      {
+        printf("error reading measurement\n");
+      }
+      else
+      {
+        sensorDataNew.typicalparticlesize = 100 * m.typical_particle_size;
+        sensorDataNew.pm1mass             = 100 * m.mc_1p0;
+        sensorDataNew.pm2mass             = 100 * m.mc_2p5;
+        sensorDataNew.pm4mass             = 100 * m.mc_4p0;
+        sensorDataNew.pm10mass            = 100 * m.mc_10p0;
+        sensorDataNew.pm1number           = 100 * m.nc_1p0;
+        sensorDataNew.pm2number           = 100 * m.nc_2p5;          
+        sensorDataNew.pm4number           = 100 * m.nc_4p0;
+        sensorDataNew.pm10number          = 100 * m.nc_10p0;   
+      }
+  
     //--------------------------------------------------------------------------------------
     // The following is sample data...
     #ifdef ZCL_MEASURE_TESTING
@@ -1047,45 +1066,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   bme_data = { 0 };
   bme280_if_init(&bme_dev, &i2c);
 
-
-  struct sps30_measurement m;
-  int16_t ret;
-
   sensirion_i2c_init(&i2c);
-
-  /* Busy loop for initialization, because the main loop does not work without
-   * a sensor.
-   */
-  while (sps30_probe() != 0)
-  {
-    printf("SPS sensor probing failed\n");
-    sensirion_sleep_usec(1000000); /* wait 1s */
-  }
-  printf("SPS sensor probing successful\n");
-
-  ret = sps30_start_measurement();
-  if (ret < 0)
-    printf("error starting measurement\n");
-  printf("measurements started\n");
-
-  while (1)
-  {
-    sensirion_sleep_usec(SPS30_MEASUREMENT_DURATION_USEC); /* wait 1s */
-    ret = sps30_read_measurement(&m);
-    if (ret < 0)
-    {
-      printf("error reading measurement\n");
-    }
-    else
-    {
-      printf("SPS30    |  Particle Size (avg: %5.2f)   |\r\n"
-             "         |-------------------------------|\r\n"
-             "         |  1.0  |  2.5  |  4.0  | 10.0  |\r\n"
-             "Mass(ug) | %5.2f | %5.2f | %5.2f | %5.2f |\r\n"
-             "Count    | %5.2f | %5.2f | %5.2f | %5.2f |\r\n\r\n",
-             m.typical_particle_size, m.mc_1p0, m.mc_2p5, m.mc_4p0, m.mc_10p0, m.nc_0p5, m.nc_1p0, m.nc_2p5, m.nc_4p0, m.nc_10p0);
-    }
-  }
 
   // Set up the io expander
   MCP23017 mcp = MCP23017(i2c, 0b0100001);
@@ -1475,7 +1456,7 @@ static void zclSampleLight_initializeClocks(void)
     OnOffClkHandle = UtilTimer_construct(
     &OnOffClkStruct,
     SAEMS_OnOff_Timeout_Callback,
-    500,
+    25,
     0, false, 0); 
     // =============================================================
 }

@@ -1097,10 +1097,10 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
          printf("Particulates_2.5 updated to %u\n", (unsigned int)sensorDataCurrent.pm2mass);
 
          pm2massReportCmd.numAttr = 1;
-         pm2massReportCmd.attrList[0].attrID   = SAEMS_ATTRID_PARTICULATES_MASS_1;
+         pm2massReportCmd.attrList[0].attrID   = SAEMS_ATTRID_PARTICULATES_MASS_2;
          pm2massReportCmd.attrList[0].dataType = ZCL_DATATYPE_UINT16;
          pm2massReportCmd.attrList[0].attrData = &sensorDataCurrent.pm2mass; 
-
+        
          zcl_SendReportCmdEx(
           SAMPLELIGHT_ENDPOINT, 
           &zclSampleLight_DstAddr,
