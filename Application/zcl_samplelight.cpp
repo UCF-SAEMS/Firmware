@@ -187,9 +187,8 @@ extern "C" {
 
 #include "lib/LMP91000/lmp91000.h"
 #include "lib/CCS811/CCS811.h"
-//#include <lib/LMP91000/lmp91000.cpp>
-//#include "lib/LMP91000/lmp91000_if.h"
-
+#include "lib/Sensirion/SPS30/sps30.h"
+#include "lib/Sensirion/SCD30/scd30.h"
 
 /*********************************************************************
  * MACROS                                                           */
@@ -1047,6 +1046,46 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   bme_dev = { 0 };
   bme_data = { 0 };
   bme280_if_init(&bme_dev, &i2c);
+
+
+  struct sps30_measurement m;
+  int16_t ret;
+
+  sensirion_i2c_init(&i2c);
+
+  /* Busy loop for initialization, because the main loop does not work without
+   * a sensor.
+   */
+  while (sps30_probe() != 0)
+  {
+    printf("SPS sensor probing failed\n");
+    sensirion_sleep_usec(1000000); /* wait 1s */
+  }
+  printf("SPS sensor probing successful\n");
+
+  ret = sps30_start_measurement();
+  if (ret < 0)
+    printf("error starting measurement\n");
+  printf("measurements started\n");
+
+  while (1)
+  {
+    sensirion_sleep_usec(SPS30_MEASUREMENT_DURATION_USEC); /* wait 1s */
+    ret = sps30_read_measurement(&m);
+    if (ret < 0)
+    {
+      printf("error reading measurement\n");
+    }
+    else
+    {
+      printf("SPS30    |  Particle Size (avg: %5.2f)   |\r\n"
+             "         |-------------------------------|\r\n"
+             "         |  1.0  |  2.5  |  4.0  | 10.0  |\r\n"
+             "Mass(ug) | %5.2f | %5.2f | %5.2f | %5.2f |\r\n"
+             "Count    | %5.2f | %5.2f | %5.2f | %5.2f |\r\n\r\n",
+             m.typical_particle_size, m.mc_1p0, m.mc_2p5, m.mc_4p0, m.mc_10p0, m.nc_0p5, m.nc_1p0, m.nc_2p5, m.nc_4p0, m.nc_10p0);
+    }
+  }
 
   // Set up the io expander
   MCP23017 mcp = MCP23017(i2c, 0b0100001);
