@@ -103,6 +103,7 @@ extern "C"
 #define SAEMS_ATTRID_PARTICULATES_NUMBER_2 0x0005
 #define SAEMS_ATTRID_PARTICULATES_NUMBER_4 0x0006
 #define SAEMS_ATTRID_PARTICULATES_NUMBER_10 0x0007
+#define SAEMS_ATTRID_PARTICULATES_TYPICAL 0x0008
 
 
 // Update structures
@@ -179,10 +180,15 @@ typedef struct SAEMS_SensorData_t {
     int16_t smoke;
     int16_t voc;
     int16_t particulates;
-    int16_t particulates_1;
-    int16_t particulates_2;
-    int16_t particulates_4;
-    int16_t particulates_10;
+    int16_t pm1mass;
+    int16_t pm2mass;
+    int16_t pm4mass;
+    int16_t pm10mass;
+    int16_t pm1number;
+    int16_t pm2number;
+    int16_t pm4number;
+    int16_t pm10number;
+    int16_t typicalparticlesize;
 } SAEMS_SensorData;
 
 extern SAEMS_SensorData sensorDataCurrent;

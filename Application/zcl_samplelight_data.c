@@ -215,7 +215,8 @@ uint16_t zclSampleLight_ScenesCurrentGroup = 0;
 uint8_t  zclSampleLight_ScenesValid = 0;
 uint8_t  zclSampleLight_ScenesNameSupport = 0;
 
-int ParticulatesSeqNum = 0;
+int Particulates2SeqNum = 0;
+int Particulates4SeqNum = 0;
 
 // >>>>>>>>>>>>>>>>>>>>>>> IF MORE COMMANDS ARE NEEDED, SHOULD BE ADDED HERE <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -687,42 +688,92 @@ CONST zclAttrRec_t zclSampleLight_Attrs[] =
   },
 // ------------------------------------------------------------
   {
-    0x0407,
-    { // >>>> PARTICULATES 1.0 Attribute <<< 
-      0x0000,
+    SAEMS_PARTICULATES_CLUSTER_ID,
+    { // >>>> PARTICULATES 1.0 MASS Attribute <<< 
+      SAEMS_ATTRID_PARTICULATES_MASS_1,
       ZCL_DATATYPE_UINT16,
       ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
-      (void *)&sensorDataCurrent.particulates_1
+      (void *)&sensorDataCurrent.pm1mass
     }
   },
 // ------------------------------------------------------------
   {
-    0x0407,
-    { // >>>> PARTICULATES 2.5 Attribute <<< 
-      0x0001,
+    SAEMS_PARTICULATES_CLUSTER_ID,
+    { // >>>> PARTICULATES 2.5 MASS Attribute <<< 
+      SAEMS_ATTRID_PARTICULATES_MASS_2,
       ZCL_DATATYPE_UINT16,
       ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
-      (void *)&sensorDataCurrent.particulates_2
+      (void *)&sensorDataCurrent.pm2mass
     }
   },
 // ------------------------------------------------------------
   {
-    0x0407,
-    { // >>>> PARTICULATES 4.0 Attribute <<< 
-      0x0002,
+    SAEMS_PARTICULATES_CLUSTER_ID,
+    { // >>>> PARTICULATES 4.0 MASS Attribute <<< 
+      SAEMS_ATTRID_PARTICULATES_MASS_4,
       ZCL_DATATYPE_UINT16,
       ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
-      (void *)&sensorDataCurrent.particulates_4
+      (void *)&sensorDataCurrent.pm4mass
     }
   },
 // ------------------------------------------------------------
   {
-    0x0407,
-    { // >>>> PARTICULATES 10.0 Attribute <<< 
-      0x0003,
+    SAEMS_PARTICULATES_CLUSTER_ID,
+    { // >>>> PARTICULATES 10.0 MASS Attribute <<< 
+      SAEMS_ATTRID_PARTICULATES_MASS_10,
       ZCL_DATATYPE_UINT16,
       ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
-      (void *)&sensorDataCurrent.particulates_10
+      (void *)&sensorDataCurrent.pm10mass
+    }
+  },
+// ------------------------------------------------------------
+  {
+    SAEMS_PARTICULATES_CLUSTER_ID,
+    { // >>>> PARTICULATES 1.0 NUMBER Attribute <<< 
+      SAEMS_ATTRID_PARTICULATES_NUMBER_1,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.pm1number
+    }
+  },
+// ------------------------------------------------------------
+  {
+    SAEMS_PARTICULATES_CLUSTER_ID,
+    { // >>>> PARTICULATES 2.5 NUMBER Attribute <<< 
+      SAEMS_ATTRID_PARTICULATES_NUMBER_2,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.pm2number
+    }
+  },
+// ------------------------------------------------------------
+  {
+    SAEMS_PARTICULATES_CLUSTER_ID,
+    { // >>>> PARTICULATES 4.0 NUMBER Attribute <<< 
+      SAEMS_ATTRID_PARTICULATES_NUMBER_4,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.pm4number
+    }
+  },
+// ------------------------------------------------------------
+  {
+    SAEMS_PARTICULATES_CLUSTER_ID,
+    { // >>>> PARTICULATES 10.0 NUMBER Attribute <<< 
+      SAEMS_ATTRID_PARTICULATES_NUMBER_10,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.pm10number
+    }
+  },
+// ------------------------------------------------------------
+  {
+    SAEMS_PARTICULATES_CLUSTER_ID,
+    { // >>>> PARTICULATES TYPICAL SIZE Attribute <<< 
+      SAEMS_ATTRID_PARTICULATES_TYPICAL,
+      ZCL_DATATYPE_UINT16,
+      ACCESS_CONTROL_READ | ACCESS_REPORTABLE,
+      (void *)&sensorDataCurrent.typicalparticlesize
     }
   },
 // ------------------------------------------------------------
@@ -947,11 +998,14 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
 }
 // ====================================================================================================================
 // ====================================================================================================================
+
 #ifdef ZCL_DATA_UPDATE
   void SAEMS_updateSensorData(void){
 
-    zclReportCmd_t pReportCmd;
     zstack_bdbRepChangedAttrValueReq_t Req;
+
+    zclReportCmd_t pm2massReportCmd;
+    
     Req.endpoint = SAMPLELIGHT_ENDPOINT;
 
     printf("***************************************\n");
@@ -1037,26 +1091,29 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
         Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId,&Req);
     }
 
-    // Update particulates value
-    if (abs(sensorDataCurrent.particulates_2 - sensorDataNew.particulates_2) > PARTICULATES_UPDATE_THRESHOLD) {
-        sensorDataCurrent.particulates_2 = sensorDataNew.particulates_2;
-        printf("Particulates updated to %u\n", (unsigned int)sensorDataCurrent.particulates_2);
+    // Update particulates 2.5 mass and number value
+    if (abs(sensorDataCurrent.pm2mass - sensorDataNew.pm2mass) > PARTICULATES_UPDATE_THRESHOLD) {
+         sensorDataCurrent.pm2mass = sensorDataNew.pm2mass;
+         printf("Particulates_2.5 updated to %u\n", (unsigned int)sensorDataCurrent.pm2mass);
 
-        pReportCmd.numAttr = 1;
-        pReportCmd.attrList[0].attrID = SAEMS_ATTRID_PARTICULATES_MASS_2;
-        pReportCmd.attrList[0].dataType = ZCL_DATATYPE_UINT16;
-        pReportCmd.attrList[0].attrData = sensorDataCurrent.particulates_2;
+         pm2massReportCmd.numAttr = 1;
+         pm2massReportCmd.attrList[0].attrID   = SAEMS_ATTRID_PARTICULATES_MASS_1;
+         pm2massReportCmd.attrList[0].dataType = ZCL_DATATYPE_UINT16;
+         pm2massReportCmd.attrList[0].attrData = &sensorDataCurrent.pm2mass; 
 
-        zcl_SendReportCmdEx(
+         zcl_SendReportCmdEx(
           SAMPLELIGHT_ENDPOINT, 
           &zclSampleLight_DstAddr,
           SAEMS_PARTICULATES_CLUSTER_ID,
-          &pReportCmd,
+          &pm2massReportCmd,
           ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, 
-          ParticulatesSeqNum++,
+          Particulates2SeqNum++,
           TRUE);
 
     }
+
+        
+
 
     printf("***************************************\n");
   }

@@ -812,10 +812,18 @@ static void SAEMS_getSensorData(void){
     //--------------------------------------------------------------------------------------
     // Particulates
     if(state == 0){
-      sensorDataNew.particulates_2 = 5;
+      sensorDataNew.pm1mass = 5;
+      sensorDataNew.pm2mass = 10;
+      sensorDataNew.pm4mass = 15;
+      sensorDataNew.pm4mass = 20;
+      
       state = 1;
     }else if(state == 1){
-      sensorDataNew.particulates_2 = 50;
+      sensorDataNew.pm1mass = 50;
+      sensorDataNew.pm2mass = 55;
+      sensorDataNew.pm4mass = 60;
+      sensorDataNew.pm4mass = 65;
+      
       state = 0;
     }
     //--------------------------------------------------------------------------------------
