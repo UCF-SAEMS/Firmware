@@ -828,7 +828,7 @@ const cId_t zclSampleLight_InClusterList[] =
   ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
   ZCL_CLUSTER_ID_MS_RELATIVE_HUMIDITY,
   ZCL_CLUSTER_ID_MS_PRESSURE_MEASUREMENT,
-  0x0407
+  SAEMS_PARTICULATES_CLUSTER_ID
 };
 
 #define ZCLSAMPLELIGHT_MAX_INCLUSTERS   (sizeof(zclSampleLight_InClusterList) / sizeof(zclSampleLight_InClusterList[0]))
@@ -1091,7 +1091,15 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
 
     // Update particulates 2.5 mass and number value
     if (abs(sensorDataCurrent.pm2mass - sensorDataNew.pm2mass) > PARTICULATES_UPDATE_THRESHOLD) {
+        sensorDataCurrent.pm1mass = sensorDataNew.pm2mass;
         sensorDataCurrent.pm2mass = sensorDataNew.pm2mass;
+        sensorDataCurrent.pm4mass = sensorDataNew.pm4mass;
+        sensorDataCurrent.pm10mass = sensorDataNew.pm10mass;
+        sensorDataCurrent.pm1number = sensorDataNew.pm1number;
+        sensorDataCurrent.pm2number = sensorDataNew.pm2number;
+        sensorDataCurrent.pm4number = sensorDataNew.pm4number;
+        sensorDataCurrent.pm10number = sensorDataNew.pm10number;
+        sensorDataCurrent.typicalparticlesize = sensorDataNew.typicalparticlesize;
         printf("Particulates_2.5 updated to %u\n", (unsigned int)sensorDataCurrent.pm2mass);
 
         Req.attrID = SAEMS_ATTRID_PARTICULATES_MASS_2;
