@@ -570,29 +570,85 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   i2c = I2C_open(CONFIG_I2C_0, &i2cParams);
 
   adpd188_start(&i2c);
-  struct adpd188_dev adpd_dev;
-  adpd188_dev *adpd_smoke;
-  adpd_smoke = &adpd_dev;
+  struct adpd188_dev *adpd_dev;
   struct adpd188_init_param adpd_param;
-  enum adpd188_mode adpd_mode;
-//  adpd_dev = { 0 };
-//  adpd_param = { 0 };
-  adpd188_init(&adpd_smoke, &adpd_param);
+
+  uint16_t rxtemp[1];
+
+//  adpd_dev =  0 ;
+//  adpd_param = 0;
+
+  adpd188_init(&adpd_dev, &adpd_param);
+
+  adpd188_reg_write(adpd_dev, 0x4b, 0x2612 | (1 << 7));
+
+  adpd188_mode_set(adpd_dev, ADPD188_PROGRAM);
+
+  adpd188_smoke_detect_setup(adpd_dev);
+
+  adpd188_reg_read(adpd_dev, 0x4b, rxtemp);
+
+  printf("\nreg, addr 58, value %04x \n", rxtemp[0]);
+
+  adpd188_reg_read(adpd_dev, 0x4b, rxtemp);
+
+  printf("\nreg, addr 58, value %04x \n", rxtemp[0]);
+
+  adpd188_reg_write(adpd_dev, ADPD188_REG_STATUS, 0x80FF);
+
+  adpd188_mode_set(adpd_dev, ADPD188_NORMAL);
 
 for(;;)
 {
   uint16_t rxreg[1];
+
   uint16_t moderet[1];
+  uint16_t samples;
+  uint16_t fifo[1];
   uint32_t ret;
-  uint32_t wri;
 
-  ret = adpd188_reg_read(&adpd_dev, ADPD188_REG_DEVID, rxreg);
 
-  wri = adpd188_mode_set(&adpd_dev, ADPD188_NORMAL);
+  adpd188_reg_read(adpd_dev, ADPD188_REG_STATUS, &samples);
 
-  adpd188_reg_read(&adpd_dev, ADPD188_REG_MODE, moderet);
+  printf("%02x \n\r", samples);
 
-  printf("reg val %d, mode success %d, value mode return %d, mode set %d \n", rxreg[0], ret, moderet[0], wri);
+//  ret = adpd188_reg_read(adpd_dev, ADPD188_REG_DEVID, rxreg);
+//
+//  adpd188_reg_read(adpd_dev, ADPD188_REG_MODE, moderet);
+//
+//  adpd188_reg_read(adpd_dev, ADPD188_REG_STATUS, &samples);
+//
+//  printf("%02x \n\r", samples);
+//
+//  samples |= (1 << 15);
+//
+//  adpd188_reg_write(adpd_dev, ADPD188_REG_STATUS, samples);
+//
+//  printf("%02x \n\r", samples);
+
+//  adpd188_reg_read(adpd_dev, ADPD188_REG_FIFO_ACCESS, fifo);
+//
+//  printf("reg val %d, mode success %d, value mode return %d, samples number %d \n", rxreg[0], ret, moderet[0], samples);
+//
+//  adpd188_reg_read(adpd_dev, ADPD188_REG_SLOT_EN, rxtemp);
+//
+//  printf("reg, slot EN, value %d \n", rxtemp[1]);
+//
+//  adpd188_reg_read(adpd_dev, ADPD188_REG_SAMPLE_CLK, rxtemp);
+//
+//  printf("reg, 32k clk, value %d \n", rxtemp[1]);
+//
+//  adpd188_reg_read(adpd_dev, ADPD188_REG_SLOT_EN, rxtemp);
+//
+//  printf("reg, slot EN, value %d \n", rxtemp[1]);
+//
+//  adpd188_reg_read(adpd_dev, ADPD188_REG_PD_LED_SELECT, rxtemp);
+//
+//  printf("reg, PD LED SEL, value %d \n", rxtemp[1]);
+//
+//  adpd188_reg_read(adpd_dev, ADPD188_REG_NUM_AVG, rxtemp);
+//
+//  printf("reg, NULL, value %d \n", rxtemp[1]);
 
   Task_sleep(2000 * (1000 / Clock_tickPeriod));
 }

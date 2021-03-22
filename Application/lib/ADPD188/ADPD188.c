@@ -92,7 +92,7 @@ int32_t adpd188_init(struct adpd188_dev **device,
     dev = (struct adpd188_dev *)calloc(1, sizeof (*dev));
     if(!dev)
         return FAILURE;
-    dev->phy_opt = init_param->phy_opt;
+//    dev->phy_opt = init_param->phy_opt;
 
 //    if(dev->phy_opt == ADPD188_SPI)
 //        ret = spi_init((struct spi_desc **)&dev->phy_desc,
@@ -115,19 +115,19 @@ int32_t adpd188_init(struct adpd188_dev **device,
     if(ret != SUCCESS)
         goto error_phy;
 
-    ret = gpio_get(&dev->gpio0, &init_param->gpio0_init);
-    if(ret != SUCCESS)
-        goto error_phy;
-    ret = gpio_get(&dev->gpio1, &init_param->gpio1_init);
-    if(ret != SUCCESS)
-        goto error_gpio0;
-
-    ret = gpio_direction_input(dev->gpio0);
-    if(ret != SUCCESS)
-        goto error_gpio1;
-    ret = gpio_direction_input(dev->gpio1);
-    if(ret != SUCCESS)
-        goto error_gpio1;
+//    ret = gpio_get(&dev->gpio0, &init_param->gpio0_init);
+//    if(ret != SUCCESS)
+//        goto error_phy;
+//    ret = gpio_get(&dev->gpio1, &init_param->gpio1_init);
+//    if(ret != SUCCESS)
+//        goto error_gpio0;
+//
+//    ret = gpio_direction_input(dev->gpio0);
+//    if(ret != SUCCESS)
+//        goto error_gpio1;
+//    ret = gpio_direction_input(dev->gpio1);
+//    if(ret != SUCCESS)
+//        goto error_gpio1;
 
     *device = dev;
 
@@ -219,13 +219,18 @@ int32_t adpd188_remove(struct adpd188_dev *dev)
 int32_t adpd188_reg_read(struct adpd188_dev *dev, uint8_t reg_addr, uint16_t *reg_val)
 {
 
+  uint8_t buff[2];
+
   _i2cTransaction.writeCount = 1;
   _i2cTransaction.writeBuf = &reg_addr;
   _i2cTransaction.readCount = 2;
-  _i2cTransaction.readBuf = reg_val;
+  _i2cTransaction.readBuf = &buff;
   _i2cTransaction.slaveAddress = 0x64;
 
   I2C_transfer(*_bus, &_i2cTransaction);
+
+  *reg_val = (buff[0] << 8) & 0xFF00;
+  *reg_val |= buff[1];
 
   return 0;
 }
@@ -264,10 +269,15 @@ int32_t adpd188_reg_read(struct adpd188_dev *dev, uint8_t reg_addr, uint16_t *re
 int32_t adpd188_reg_write(struct adpd188_dev *dev, uint8_t reg_addr, uint16_t reg_val)
 {
 
+
+    uint16_t rxbuff[1];
+
     uint8_t temp_data[3];
     temp_data[0] = reg_addr;
     temp_data[1] = (reg_val & 0xFF00) >> 8;
     temp_data[2] = reg_val & 0x00FF;
+
+//    printf("\n reg addr %02x, data MSB %02x, LSB %02x \n", temp_data[0], temp_data[1], temp_data[2]);
 
     _i2cTransaction.writeCount = 3;
     _i2cTransaction.writeBuf = temp_data;
@@ -276,6 +286,10 @@ int32_t adpd188_reg_write(struct adpd188_dev *dev, uint8_t reg_addr, uint16_t re
     _i2cTransaction.slaveAddress = 0x64;
 
     I2C_transfer(*_bus, &_i2cTransaction);
+
+//    adpd188_reg_read(dev, reg_addr, rxbuff);
+//
+//    printf("\n reg addr %02x, data %02x \n", temp_data[0], rxbuff[0]);
 
     return 0;
 }
@@ -724,6 +738,7 @@ int32_t adpd188_smoke_detect_setup(struct adpd188_dev *dev)
         return FAILURE;
     reg_data |= ADPD188_SLOT_EN_RDOUT_MODE_MASK |
             ADPD188_SLOT_EN_FIFO_OVRN_PREVENT_MASK;
+
     ret = adpd188_reg_write(dev, ADPD188_REG_SLOT_EN, reg_data);
     if(ret != SUCCESS)
         return FAILURE;
@@ -758,6 +773,7 @@ int32_t adpd188_smoke_detect_setup(struct adpd188_dev *dev)
             ADPD188_PD_LED_SELECT_SLOTA_PD_SEL_MASK;
     reg_data |= (1 << ADPD188_PD_LED_SELECT_SLOTB_PD_SEL_POS) &
             ADPD188_PD_LED_SELECT_SLOTB_PD_SEL_MASK;
+
     ret = adpd188_reg_write(dev, ADPD188_REG_PD_LED_SELECT, reg_data);
     if(ret != SUCCESS)
         return FAILURE;
@@ -798,6 +814,7 @@ int32_t adpd188_smoke_detect_setup(struct adpd188_dev *dev)
     if(ret != SUCCESS)
         return FAILURE;
     reg_data |= 0x9 & ADPD188_INT_SEQ_B_INTEG_ORDER_B_MASK;
+
     ret = adpd188_reg_write(dev, ADPD188_REG_INT_SEQ_B, reg_data);
     if(ret != SUCCESS)
         return FAILURE;
@@ -933,5 +950,7 @@ int32_t adpd188_smoke_detect_setup(struct adpd188_dev *dev)
     reg_data |= (0x02 << ADPD188_MATH_FLT_MATH12_A_POS) &
             ADPD188_MATH_FLT_MATH12_A_MASK;
 
-    return adpd188_reg_write(dev, ADPD188_REG_MATH, reg_data);
+    adpd188_reg_write(dev, ADPD188_REG_MATH, reg_data);
+
+    return SUCCESS;
 }
