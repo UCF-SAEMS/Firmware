@@ -597,23 +597,27 @@ for(;;)
   uint16_t samples;
   uint16_t rxreg;
 
+  adpd188_reg_read(adpd_dev, ADPD188_REG_STATUS, &rxreg);
+
+  printf("Status: %02x \n\r", rxreg);
+
   adpd188_reg_read(adpd_dev, 0x60, &samples);
 
   printf("fifo out: %02x \n\r", samples);
 
-  adpd188_reg_read(adpd_dev, 0x60, &samples);
+  adpd188_reg_read(adpd_dev, 0x64, &samples);
 
   printf("Slot A CH 1 %02x \n\r", samples);
 
-  adpd188_reg_read(adpd_dev, 0x60, &samples);
+  adpd188_reg_read(adpd_dev, 0x68, &samples);
 
   printf("Slot B CH 1 %02x \n\r", samples);
 
   adpd188_reg_read(adpd_dev, ADPD188_REG_DEVID, &rxreg);
 
-  printf("ID %02x \n\r", rxreg);
+  printf("ID %02x \n\n\r", rxreg);
 
-  Task_sleep(1000*1000 / Clock_tickPeriod);
+  Task_sleep(36 / Clock_tickPeriod);
 
 }
 

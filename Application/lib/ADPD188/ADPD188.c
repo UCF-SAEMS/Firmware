@@ -216,9 +216,6 @@ int32_t adpd188_reg_read(struct adpd188_dev *dev, uint8_t reg_addr, uint16_t *re
 int32_t adpd188_reg_write(struct adpd188_dev *dev, uint8_t reg_addr, uint16_t reg_val)
 {
 
-
-    uint16_t rxbuff[1];
-
     uint8_t temp_data[3];
     temp_data[0] = reg_addr;
     temp_data[1] = (reg_val & 0xFF00) >> 8;
