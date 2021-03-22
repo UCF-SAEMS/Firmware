@@ -185,36 +185,6 @@ int32_t adpd188_remove(struct adpd188_dev *dev)
  * @param reg_val - Value of the read register.
  * @return SUCCESS in case of success, FAILURE otherwise.
  */
-//int32_t adpd188_reg_read(struct adpd188_dev *dev, uint8_t reg_addr,
-//             uint16_t *reg_val)
-//{
-//    int32_t ret;
-//    uint8_t buff[] = {0, 0, 0};
-//
-//    if(dev->phy_opt == ADPD188_SPI) {
-//        buff[0] = (reg_addr << 1) & 0xFE;
-//        ret = spi_write_and_read(dev->phy_desc, buff, 3);
-//    } else if(dev->phy_opt == ADPD188_I2C) {
-//        ret = i2c_write(dev->phy_desc, &reg_addr, 1, 0);
-//        if(ret != SUCCESS)
-//            return FAILURE;
-//        /**
-//         *  Store read values starting with the second place in the buffer to
-//         *  have the value in the same spaces as in the SPI case. This way the
-//         *  register value can be compiled only once outside the if clause.
-//         */
-//        ret = i2c_read(dev->phy_desc, (buff + 1), 2, 1);
-//    } else {
-//        ret = FAILURE;
-//    }
-//    if(ret != SUCCESS)
-//        return FAILURE;
-//
-//    *reg_val = (buff[1] << 8) & 0xFF00;
-//    *reg_val |= buff[2];
-//
-//    return SUCCESS;
-//}
 
 int32_t adpd188_reg_read(struct adpd188_dev *dev, uint8_t reg_addr, uint16_t *reg_val)
 {
@@ -224,7 +194,7 @@ int32_t adpd188_reg_read(struct adpd188_dev *dev, uint8_t reg_addr, uint16_t *re
   _i2cTransaction.writeCount = 1;
   _i2cTransaction.writeBuf = &reg_addr;
   _i2cTransaction.readCount = 2;
-  _i2cTransaction.readBuf = &buff;
+  _i2cTransaction.readBuf = buff;
   _i2cTransaction.slaveAddress = 0x64;
 
   I2C_transfer(*_bus, &_i2cTransaction);
@@ -242,29 +212,6 @@ int32_t adpd188_reg_read(struct adpd188_dev *dev, uint8_t reg_addr, uint16_t *re
  * @param reg_val - The new value of the register.
  * @return SUCCESS in case of success, FAILURE otherwise.
  */
-//int32_t adpd188_reg_write(struct adpd188_dev *dev, uint8_t reg_addr,
-//              uint16_t reg_val)
-//{
-//    int32_t ret;
-//    uint8_t buff[] = {0, 0, 0};
-//
-//    buff[1] = (reg_val & 0xFF00) >> 8;
-//    buff[2] = reg_val & 0x00FF;
-//
-//    if(dev->phy_opt == ADPD188_SPI) {
-//        buff[0] = (reg_addr << 1) | 1;
-//        ret = spi_write_and_read(dev->phy_desc, buff, 3);
-//    } else if(dev->phy_opt == ADPD188_I2C) {
-//        buff[0] = reg_addr;
-//        ret = i2c_write(dev->phy_desc, buff, 3, 1);
-//    } else {
-//        ret = FAILURE;
-//    }
-//    if(ret != SUCCESS)
-//        return FAILURE;
-//
-//    return SUCCESS;
-//}
 
 int32_t adpd188_reg_write(struct adpd188_dev *dev, uint8_t reg_addr, uint16_t reg_val)
 {
@@ -731,29 +678,33 @@ int32_t adpd188_smoke_detect_setup(struct adpd188_dev *dev)
 {
     int32_t ret;
     uint16_t reg_data;
-    struct adpd188_slot_config slota_conf, slotb_conf;
+//    struct adpd188_slot_config slota_conf, slotb_conf;
 
     ret = adpd188_reg_read(dev, ADPD188_REG_SLOT_EN, &reg_data);
     if(ret != SUCCESS)
         return FAILURE;
-    reg_data |= ADPD188_SLOT_EN_RDOUT_MODE_MASK |
-            ADPD188_SLOT_EN_FIFO_OVRN_PREVENT_MASK;
 
-    ret = adpd188_reg_write(dev, ADPD188_REG_SLOT_EN, reg_data);
-    if(ret != SUCCESS)
-        return FAILURE;
-    slota_conf.slot_en = true;
-    slota_conf.slot_id = ADPD188_SLOTA;
-    slota_conf.sot_fifo_mode = ADPD188_32BIT_SUM;
-    ret = adpd188_slot_setup(dev, slota_conf);
-    if(ret != SUCCESS)
-        return FAILURE;
-    slotb_conf.slot_en = true;
-    slotb_conf.slot_id = ADPD188_SLOTB;
-    slotb_conf.sot_fifo_mode = ADPD188_32BIT_SUM;
-    ret = adpd188_slot_setup(dev, slotb_conf);
-    if(ret != SUCCESS)
-        return FAILURE;
+//    reg_data |= ADPD188_SLOT_EN_RDOUT_MODE_MASK |
+//            ADPD188_SLOT_EN_FIFO_OVRN_PREVENT_MASK;
+//
+//    ret = adpd188_reg_write(dev, ADPD188_REG_SLOT_EN, reg_data);
+//
+//    if(ret != SUCCESS)
+//        return FAILURE;
+//    slota_conf.slot_en = true;
+//    slota_conf.slot_id = ADPD188_SLOTA;
+//    slota_conf.sot_fifo_mode = ADPD188_32BIT_SUM;
+//    ret = adpd188_slot_setup(dev, slota_conf);
+//    if(ret != SUCCESS)
+//        return FAILURE;
+//    slotb_conf.slot_en = true;
+//    slotb_conf.slot_id = ADPD188_SLOTB;
+//    slotb_conf.sot_fifo_mode = ADPD188_32BIT_SUM;
+//    ret = adpd188_slot_setup(dev, slotb_conf);
+//    if(ret != SUCCESS)
+//        return FAILURE;
+
+    adpd188_reg_write(dev, ADPD188_REG_SLOT_EN, 0x30A9);
 
     ret = adpd188_adc_fsample_set(dev, 16.0);
     if(ret != SUCCESS)

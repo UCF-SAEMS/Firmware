@@ -588,69 +588,33 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   adpd188_reg_read(adpd_dev, 0x4b, rxtemp);
 
-  printf("\nreg, addr 58, value %04x \n", rxtemp[0]);
-
-  adpd188_reg_read(adpd_dev, 0x4b, rxtemp);
-
-  printf("\nreg, addr 58, value %04x \n", rxtemp[0]);
-
   adpd188_reg_write(adpd_dev, ADPD188_REG_STATUS, 0x80FF);
 
   adpd188_mode_set(adpd_dev, ADPD188_NORMAL);
 
 for(;;)
 {
-  uint16_t rxreg[1];
-
-  uint16_t moderet[1];
   uint16_t samples;
-  uint16_t fifo[1];
-  uint32_t ret;
+  uint16_t rxreg;
 
+  adpd188_reg_read(adpd_dev, 0x60, &samples);
 
-  adpd188_reg_read(adpd_dev, ADPD188_REG_STATUS, &samples);
+  printf("fifo out: %02x \n\r", samples);
 
-  printf("%02x \n\r", samples);
+  adpd188_reg_read(adpd_dev, 0x60, &samples);
 
-//  ret = adpd188_reg_read(adpd_dev, ADPD188_REG_DEVID, rxreg);
-//
-//  adpd188_reg_read(adpd_dev, ADPD188_REG_MODE, moderet);
-//
-//  adpd188_reg_read(adpd_dev, ADPD188_REG_STATUS, &samples);
-//
-//  printf("%02x \n\r", samples);
-//
-//  samples |= (1 << 15);
-//
-//  adpd188_reg_write(adpd_dev, ADPD188_REG_STATUS, samples);
-//
-//  printf("%02x \n\r", samples);
+  printf("Slot A CH 1 %02x \n\r", samples);
 
-//  adpd188_reg_read(adpd_dev, ADPD188_REG_FIFO_ACCESS, fifo);
-//
-//  printf("reg val %d, mode success %d, value mode return %d, samples number %d \n", rxreg[0], ret, moderet[0], samples);
-//
-//  adpd188_reg_read(adpd_dev, ADPD188_REG_SLOT_EN, rxtemp);
-//
-//  printf("reg, slot EN, value %d \n", rxtemp[1]);
-//
-//  adpd188_reg_read(adpd_dev, ADPD188_REG_SAMPLE_CLK, rxtemp);
-//
-//  printf("reg, 32k clk, value %d \n", rxtemp[1]);
-//
-//  adpd188_reg_read(adpd_dev, ADPD188_REG_SLOT_EN, rxtemp);
-//
-//  printf("reg, slot EN, value %d \n", rxtemp[1]);
-//
-//  adpd188_reg_read(adpd_dev, ADPD188_REG_PD_LED_SELECT, rxtemp);
-//
-//  printf("reg, PD LED SEL, value %d \n", rxtemp[1]);
-//
-//  adpd188_reg_read(adpd_dev, ADPD188_REG_NUM_AVG, rxtemp);
-//
-//  printf("reg, NULL, value %d \n", rxtemp[1]);
+  adpd188_reg_read(adpd_dev, 0x60, &samples);
 
-  Task_sleep(2000 * (1000 / Clock_tickPeriod));
+  printf("Slot B CH 1 %02x \n\r", samples);
+
+  adpd188_reg_read(adpd_dev, ADPD188_REG_DEVID, &rxreg);
+
+  printf("ID %02x \n\r", rxreg);
+
+  Task_sleep(1000*1000 / Clock_tickPeriod);
+
 }
 
   struct bme280_data bme_data;
