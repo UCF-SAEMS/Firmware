@@ -1003,8 +1003,6 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
   void SAEMS_updateSensorData(void){
 
     zstack_bdbRepChangedAttrValueReq_t Req;
-
-    zclReportCmd_t pm2massReportCmd;
     
     Req.endpoint = SAMPLELIGHT_ENDPOINT;
 
@@ -1093,23 +1091,12 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
 
     // Update particulates 2.5 mass and number value
     if (abs(sensorDataCurrent.pm2mass - sensorDataNew.pm2mass) > PARTICULATES_UPDATE_THRESHOLD) {
-         sensorDataCurrent.pm2mass = sensorDataNew.pm2mass;
-         printf("Particulates_2.5 updated to %u\n", (unsigned int)sensorDataCurrent.pm2mass);
+        sensorDataCurrent.pm2mass = sensorDataNew.pm2mass;
+        printf("Particulates_2.5 updated to %u\n", (unsigned int)sensorDataCurrent.pm2mass);
 
-         pm2massReportCmd.numAttr = 1;
-         pm2massReportCmd.attrList[0].attrID   = SAEMS_ATTRID_PARTICULATES_MASS_2;
-         pm2massReportCmd.attrList[0].dataType = ZCL_DATATYPE_UINT16;
-         pm2massReportCmd.attrList[0].attrData = &sensorDataCurrent.pm2mass; 
-        
-         zcl_SendReportCmdEx(
-          SAMPLELIGHT_ENDPOINT, 
-          &zclSampleLight_DstAddr,
-          SAEMS_PARTICULATES_CLUSTER_ID,
-          &pm2massReportCmd,
-          ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, 
-          Particulates2SeqNum++,
-          TRUE);
-
+        Req.attrID = SAEMS_ATTRID_PARTICULATES_MASS_2;
+        Req.cluster = SAEMS_PARTICULATES_CLUSTER_ID;
+        Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId, &Req);
     }
 
         
