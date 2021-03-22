@@ -184,6 +184,7 @@ typedef struct SAEMS_SensorData_t {
     int16_t pm2mass;
     int16_t pm4mass;
     int16_t pm10mass;
+    int16_t pm0number;
     int16_t pm1number;
     int16_t pm2number;
     int16_t pm4number;

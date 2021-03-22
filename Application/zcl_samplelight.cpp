@@ -86,6 +86,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <math.h>
+#include <string>
+#include <sstream>
 
 #include "rom_jt_154.h"
 #include "zcomdef.h"
@@ -1509,6 +1511,31 @@ static void zclSampleLight_processDiscoveryTimeoutCallback(UArg a0)
     Semaphore_post(appSemHandle);
 }
 
+static std::string formatJSONString(void)
+{
+    std::stringstream ss;
+    ss << "{";
+    ss << "\"temperature\" : " << sensorDataCurrent.temperature << ", ";
+    ss << "\"humidity\" : " << sensorDataCurrent.humidity << ", ";
+    ss << "\"voc\" : " << sensorDataCurrent.voc << ", ";
+    ss << "\"occupancy\" : " << sensorDataCurrent.occupancy << ", ";
+    ss << "\"smoke\" : " << sensorDataCurrent.smoke << ", ";
+    ss << "\"pressure\" : " << sensorDataCurrent.pressure << ", ";
+    ss << "\"pm1mass\" : " << sensorDataCurrent.pm1mass << ", ";
+    ss << "\"pm2mass\" : " << sensorDataCurrent.pm2mass << ", ";
+    ss << "\"pm4mass\" : " << sensorDataCurrent.pm4mass << ", ";
+    ss << "\"pm10mass\" : " << sensorDataCurrent.pm10mass << ", ";
+    ss << "\"pm0number\" : " << sensorDataCurrent.pm0number << ", ";
+    ss << "\"pm1number\" : " << sensorDataCurrent.pm1number << ", ";
+    ss << "\"pm2number\" : " << sensorDataCurrent.pm2number << ", ";
+    ss << "\"pm4number\" : " << sensorDataCurrent.pm4number << ", ";
+    ss << "\"pm10number\" : " << sensorDataCurrent.pm10number << ", ";
+    ss << "\"typicalparticlesize\" : " << sensorDataCurrent.typicalparticlesize;
+    ss <<"}";
+    return ss.str();
+}
+
+
 
 /*******************************************************************************
  * @fn      zclSampleLight_process_loop
@@ -1568,6 +1595,7 @@ static void zclSampleLight_process_loop(void)
               UtilTimer_start(&SensorDataClkStruct);
               
               appServiceTaskEvents &= ~SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT;
+              printf ("%s \n", formatJSONString());
             }
 
             if ( appServiceTaskEvents & SAMPLEAPP_DISCOVERY_TIMEOUT_EVT ){
