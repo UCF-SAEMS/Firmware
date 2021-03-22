@@ -785,52 +785,22 @@ static void SAEMS_getSensorData(void){
     //--------------------------------------------------------------------------------------
     // Carbon Monoxide
     lmp.setThreeLead();
+    lmp.setRLoad(0);
+    lmp.setIntZ(3);
+    lmp.setGain(5);
+    lmp.setIntRefSource();
+
     uint8_t dataread = lmp.read(LMP91000_MODECN_REG);
-    double temp = lmp.getTempValue(adc);
+    double volts = ( (double) lmp.getADC(adc) ) * pow(10.0, -6.0);       // returned in uV - converting to V
+    double resistance = lmp.getGain();
 
+    printf("volts; %f\n", volts);
+    printf("resistance: %f\n", resistance);
+    double current = ( (double) volts / resistance ) * pow(10.0, 9.0);     // uA --> nA
+    printf("intermediate current nA: %f\n", current);
+    double co_sensitivity = 4.94;
     
-
-    sensorDataNew.carbonmonoxide = 0.001 * lmp.getADC(adc);
-
-    printf("%u\n", lmp.getADC(adc));
-    printf("value status in MODE reg %d, raw uV value %u \n \n", dataread, sensorDataNew.carbonmonoxide);
-
-    buffer[0] = '\0';
-    sprintf(buffer, "LMP9100: %d,  %u\r\n", dataread, sensorDataNew.carbonmonoxide);
-    Display_printf(display, 3, 0, "%s", buffer);
-
-
-      for(;;){
-
-      uint8_t dataread = 0;
-       temp;
-      uint32_t data = 0;
-
-      temp = lmp.getTempValue(adc);
-
-      dataread = lmp.read(LMP91000_MODECN_REG);
-
-      data = lmp.getADC(adc);
-
-      printf("value status in MODE reg %d output %.2f C, raw uV value %d \n", dataread, temp, data);
-
-      Task_sleep(2000 * (1000 / Clock_tickPeriod));
-
-      lmp.setThreeLead();
-      lmp.setRLoad(0);
-      lmp.setGain(7);
-      lmp.setIntRefSource();
-
-      dataread = lmp.read(LMP91000_MODECN_REG);
-
-      data = lmp.getADC(adc);
-      float current = (float) lmp.getCurrent(adc);
-
-      printf("value status in MODE reg %d, raw uV value %d, raw current %.2f \n \n", dataread, data, current);
-
-      Task_sleep(2000 * (1000 / Clock_tickPeriod));
-
-  }
+    sensorDataNew.carbonmonoxide = (uint16_t) ( (current / co_sensitivity) * 100 );
     //--------------------------------------------------------------------------------------
     // VOC
     ccs.sample();
@@ -1098,9 +1068,6 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   ccs.begin();
   ccs.start(1);
-
-  struct bme280_data bme_data;
-  struct bme280_dev bme_dev;
 
   bme_dev = { 0 };
   bme_data = { 0 };
