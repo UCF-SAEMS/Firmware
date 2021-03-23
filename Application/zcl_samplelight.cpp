@@ -298,6 +298,7 @@ uint16_t SCD30_co2 = 0;
 static uint16_t zclSampleLight_BdbCommissioningModes;
 uint8_t OnOff = 0xFE; // initialize to invalid
 uint8_t LightLevel = 0xFE;
+uint8_t LastLightLevel = 0xFE;
 
 Display_Handle display;
 
@@ -683,6 +684,7 @@ static void SAEMS_OnOffCB( uint8_t cmd )
   // Turn off the light
   else if ( cmd == COMMAND_ON_OFF_OFF ){
     OnOff = LIGHT_OFF;
+    LastLightLevel = zclSampleLight_getCurrentLevelAttribute();
   }
 
 
@@ -979,11 +981,12 @@ static void SAEMS_OnOff_Ramp( void ){
   ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
 
     // Re-start the timer until the condition has been met to stop ramping
-    if( zclSampleLight_getCurrentLevelAttribute() >= 127 ){
+    if( zclSampleLight_getCurrentLevelAttribute() >= LastLightLevel ){
       // CONDITION MET: Do not restart the timer
       printf("CONDITION MET!!\n");
+      zclSampleLight_updateCurrentLevelAttribute(LastLightLevel);
       zclSampleLight_updateOnOffAttribute(OnOff);
-    }else if( zclSampleLight_getCurrentLevelAttribute() < 127 ){
+    }else if( zclSampleLight_getCurrentLevelAttribute() < LastLightLevel ){
       // CONDITION NOT MET: Restart the timer
       printf("Condition NOT MET: Restarting the timer!!\n");
       UtilTimer_start( &OnOffClkStruct );
@@ -1003,11 +1006,12 @@ static void SAEMS_OnOff_Ramp( void ){
   ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
 
     // Re-start the timer until the condition has been met to stop ramping
-    if( zclSampleLight_getCurrentLevelAttribute() <= 25  ){
+    if( zclSampleLight_getCurrentLevelAttribute() <= 10  ){
       // CONDITION MET: Do not restart the timer
-      zclSampleLight_updateOnOffAttribute(OnOff);
       printf("CONDITION MET!!\n");
-    }else if( zclSampleLight_getCurrentLevelAttribute() > 25 ){
+      zclSampleLight_updateCurrentLevelAttribute(0);
+      zclSampleLight_updateOnOffAttribute(OnOff);
+    }else if( zclSampleLight_getCurrentLevelAttribute() > 10 ){
       // CONDITION NOT MET: Restart the timer
       printf("Condition NOT MET: Restarting the timer!!\n");
       UtilTimer_start( &OnOffClkStruct );
