@@ -610,7 +610,8 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
       lmp.setThreeLead();
       lmp.setRLoad(0);
-      lmp.setGain(7);
+      lmp.setIntZ(3);
+      lmp.setGain(5);
       lmp.setIntRefSource();
 
       dataread = lmp.read(LMP91000_MODECN_REG);
