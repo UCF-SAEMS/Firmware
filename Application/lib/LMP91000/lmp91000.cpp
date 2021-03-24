@@ -611,9 +611,12 @@ uint32_t LMP91000::getCurrentExtern(ADC_Handle adc, uint8_t extGain)
 
 //This method calculates the current at the working electrode by reading in the
 //voltage at the output of LMP91000 and dividing by the value of the gain resistor.
-uint32_t LMP91000::getCurrent(ADC_Handle adc)
+double LMP91000::getCurrent(ADC_Handle adc)
 {
-    return (getADC(adc)/(TIA_GAIN[gain-1]));
+
+    uint32_t voltnano = getADC(adc) * 1000;
+
+    return (voltnano/(TIA_GAIN[gain-1]));
 }
 
 //This returns the ADC value from the output of the LMP91000

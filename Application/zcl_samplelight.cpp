@@ -591,6 +591,12 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   LMP91000 lmp = LMP91000(i2c, LMP91000_I2C_ADDRESS);
 
+  lmp.setBiasSign(1);
+  lmp.setRLoad(0);
+  lmp.setIntZ(0);
+  lmp.setGain(1);
+  lmp.setIntRefSource();
+  lmp.setBias(0b1011);
 
   for(;;){
 
@@ -602,24 +608,25 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
       dataread = lmp.read(LMP91000_MODECN_REG);
 
+      Task_sleep(2000 * (1000 / Clock_tickPeriod));
+
       data = lmp.getADC(adc);
 
       printf("value status in MODE reg %d output %.2f C, raw uV value %d \n", dataread, temp, data);
 
-      Task_sleep(2000 * (1000 / Clock_tickPeriod));
-
       lmp.setThreeLead();
-      lmp.setRLoad(0);
-      lmp.setIntZ(3);
-      lmp.setGain(5);
-      lmp.setIntRefSource();
+
+      Task_sleep(2000 * (1000 / Clock_tickPeriod));
 
       dataread = lmp.read(LMP91000_MODECN_REG);
 
       data = lmp.getADC(adc);
-      float current = (float) lmp.getCurrent(adc);
 
-      printf("value status in MODE reg %d, raw uV value %d, raw current %.2f \n \n", dataread, data, current);
+      Task_sleep(2000 * (1000 / Clock_tickPeriod));
+
+      double current = lmp.getCurrent(adc);
+
+      printf("value status in MODE reg %d, raw uV value %u, raw current %.2f \n \n", dataread, data, current);
 
       Task_sleep(2000 * (1000 / Clock_tickPeriod));
 
