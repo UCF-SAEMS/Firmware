@@ -1227,6 +1227,8 @@ static void zclSampleLight_Init( void )
 
   #ifdef ZCL_LIGHTING
   // >>>> Register the ZCL Lighting Cluster Library callback functions <<<<
+  /* If this function throws an "undefined symbol" error, then be sure that files zcl_lighting.c and .h 
+  are included within the build path */
   zclLighting_RegisterCmdCallbacks( SAMPLELIGHT_ENDPOINT, &zclSAEMS_CmdCallbacks );
   #endif // ZCL_LIGHTING
 

@@ -23,6 +23,10 @@
         compilerBuildOptions="
             -I${PROJECT_ROOT}
             -I${PROJECT_ROOT}/${ConfigName}
+            -DBDB_MAX_CLUSTERENDPOINTS_REPORTING=25
+            -DZCL_REPORTING_DEVICE
+            -DZCL_MS
+            -DZCL_LIGHTING
             -DZCL_READ
             -DZCL_DISCOVER
             -DZCL_WRITE
@@ -524,17 +528,17 @@
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/zcl/zcl_telecommunication.h" openOnCreation="false" excludeFromBuild="true" action="copy" targetDirectory="Common/zcl">
         </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/zcl/zcl_lighting.c" openOnCreation="false" excludeFromBuild="true" action="copy" targetDirectory="Common/zcl">
+        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/zcl/zcl_lighting.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Common/zcl">
         </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/zcl/zcl_lighting.h" openOnCreation="false" excludeFromBuild="true" action="copy" targetDirectory="Common/zcl">
+        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/zcl/zcl_lighting.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Common/zcl">
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/zcl/zcl_ll.c" openOnCreation="false" excludeFromBuild="true" action="copy" targetDirectory="Common/zcl">
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/zcl/zcl_ll.h" openOnCreation="false" excludeFromBuild="true" action="copy" targetDirectory="Common/zcl">
         </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/zcl/zcl_ms.c" openOnCreation="false" excludeFromBuild="true" action="copy" targetDirectory="Common/zcl">
+        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/zcl/zcl_ms.c" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Common/zcl">
         </file>
-        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/zcl/zcl_ms.h" openOnCreation="false" excludeFromBuild="true" action="copy" targetDirectory="Common/zcl">
+        <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/zcl/zcl_ms.h" openOnCreation="false" excludeFromBuild="false" action="copy" targetDirectory="Common/zcl">
         </file>
         <file path="${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/stack/zcl/zcl_ota.c" openOnCreation="false" excludeFromBuild="true" action="copy" targetDirectory="Common/zcl">
         </file>
