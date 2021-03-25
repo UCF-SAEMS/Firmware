@@ -206,7 +206,7 @@ public:
     uint32_t getTemp(ADC_Handle handle);
     double getTempValue(ADC_Handle handle);
     uint32_t getCurrentExtern(ADC_Handle handle, uint8_t extGain);
-    uint32_t getCurrent(ADC_Handle handle);
+    double getCurrent(ADC_Handle handle);
 
     //reading the output of the LMP91000
     uint32_t getADC(ADC_Handle handle);
