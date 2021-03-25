@@ -786,23 +786,27 @@ static void SAEMS_getSensorData(void){
     Display_printf(display, 2, 0, "%s", buffer);
     //--------------------------------------------------------------------------------------
     // Carbon Monoxide
-    lmp.setThreeLead();
+    lmp.setBiasSign(1);
     lmp.setRLoad(0);
-    lmp.setIntZ(3);
-    lmp.setGain(5);
+    lmp.setIntZ(0);
+    lmp.setGain(1);
     lmp.setIntRefSource();
+    lmp.setBias(0b1011);
+    lmp.setThreeLead();
 
     uint8_t dataread = lmp.read(LMP91000_MODECN_REG);
-    double volts = ( (double) lmp.getADC(adc) ) * pow(10.0, -6.0);       // returned in uV - converting to V
-    double resistance = lmp.getGain();
-
-    printf("volts; %f\n", volts);
-    printf("resistance: %f\n", resistance);
-    double current = ( (double) volts / resistance ) * pow(10.0, 9.0);     // uA --> nA
-    printf("intermediate current nA: %f\n", current);
+    uint32_t uV = lmp.getADC(adc);
+    double nA = lmp.getCurrent(adc);
     double co_sensitivity = 4.94;
-    
-    sensorDataNew.carbonmonoxide = (uint16_t) ( (current / co_sensitivity) * 100 );
+  
+    printf("\nmicroVolts: %d uV\t", uV); printf("nanoVolts: %d\n", uV*1000);
+    printf("resistance: %.2f kohms\n", lmp.getGain());
+    printf("nanoAmps: %.2f nA\n", nA);
+    printf("CO Sensitivity: %.2f nA/ppm\n", co_sensitivity);
+
+    printf("PPM: %.2f ppm\n\n", (nA / co_sensitivity) );
+
+    sensorDataNew.carbonmonoxide = (uint16_t) ( (nA / co_sensitivity) );
     //--------------------------------------------------------------------------------------
     // VOC
     ccs.sample();
@@ -1070,44 +1074,6 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ADC_Handle adc = ADC_open(CO_OUT, &ADCparams);
 
   LMP91000 lmp = LMP91000(i2c, LMP91000_I2C_ADDRESS);
-
-  lmp.setBiasSign(1);
-  lmp.setRLoad(0);
-  lmp.setIntZ(0);
-  lmp.setGain(1);
-  lmp.setIntRefSource();
-  lmp.setBias(0b1011);
-
-  for(;;){
-      uint8_t dataread = 0;
-      double temp;
-      uint32_t data = 0;
-
-
-      dataread = lmp.read(LMP91000_MODECN_REG);
-
-      Task_sleep(2000 * (1000 / Clock_tickPeriod));
-
-      data = lmp.getADC(adc);
-
-      printf("value status in MODE reg %d output %.2f C, raw uV value %d \n", dataread, temp, data);
-
-      lmp.setThreeLead();
-
-      Task_sleep(2000 * (1000 / Clock_tickPeriod));
-
-      dataread = lmp.read(LMP91000_MODECN_REG);
-
-      data = lmp.getADC(adc);
-
-      Task_sleep(2000 * (1000 / Clock_tickPeriod));
-
-      double current = lmp.getCurrent(adc);
-
-      printf("value status in MODE reg %d, raw uV value %u, raw current %.2f \n \n", dataread, data, current);
-
-      Task_sleep(2000 * (1000 / Clock_tickPeriod));
-  }
 
   ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
   ccs.begin();
