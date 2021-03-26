@@ -60,6 +60,7 @@
 #include <ti/sysbios/knl/Task.h>
 #include "lmp91000.h"
 #include "ti_drivers_config.h"
+#include <stdio.h>
 
 //#define CO_OUT 0
 
@@ -614,7 +615,20 @@ uint32_t LMP91000::getCurrentExtern(ADC_Handle adc, uint8_t extGain)
 double LMP91000::getCurrent(ADC_Handle adc)
 {
 
-    uint32_t voltnano = getADC(adc) * 1000;
+    uint32_t uVraw;
+    uint32_t  zeroeduvolt;
+    uVraw = getADC(adc);
+
+    while(uVraw > 50000000){
+        uVraw = getADC(adc);
+        zeroeduvolt = uVraw;
+    }
+
+    zeroeduvolt = (getADC(adc) - 673000) * 0.2;
+
+    printf("\nZeroed uV %d\n", zeroeduvolt);
+
+    uint32_t voltnano = zeroeduvolt * 1000;
 
     return (voltnano/(TIA_GAIN[gain-1]));
 }
