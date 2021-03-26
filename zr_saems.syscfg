@@ -67,6 +67,7 @@ scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to XDS110 UART 
 
 ADC1.$name                = "CO_OUT";
 ADC1.adjustSampleValue    = true;
+ADC1.samplingDuration     = "85.3 us";
 ADC1.adc.$assign          = "ADC0";
 ADC1.adc.adcPin.$assign   = "boosterpack.2";
 ADC1.adcPinInstance.$name = "CONFIG_PIN_7";

@@ -591,12 +591,14 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   LMP91000 lmp = LMP91000(i2c, LMP91000_I2C_ADDRESS);
 
+  lmp.unlock();
+
   lmp.setBiasSign(1);
-  lmp.setRLoad(0);
+  lmp.setRLoad(3);
   lmp.setIntZ(0);
   lmp.setGain(1);
   lmp.setIntRefSource();
-  lmp.setBias(0b1011);
+  lmp.setBias(0);
 
   for(;;){
 

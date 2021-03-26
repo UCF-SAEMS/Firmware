@@ -617,20 +617,43 @@ double LMP91000::getCurrent(ADC_Handle adc)
 
     uint32_t uVraw;
     uint32_t  zeroeduvolt;
+    uint32_t  sample1;
+    uint32_t  sample2;
+    uint32_t  sample3;
+    uint32_t  sample4;
+    uint32_t  sample5;
     uVraw = getADC(adc);
 
     while(uVraw > 50000000){
         uVraw = getADC(adc);
         zeroeduvolt = uVraw;
+        usleep(100);
     }
 
-    zeroeduvolt = (getADC(adc) - 673000) * 0.2;
+    sample1 = getADC(adc);
+    usleep(100);
+    sample2 = getADC(adc);
+    usleep(100);
+    sample3 = getADC(adc);
+    usleep(100);
+    sample4 = getADC(adc);
+    usleep(100);
+    sample5 = getADC(adc);
+    usleep(100);
+
+    uVraw = (sample1 + sample2 + sample3 + sample4 + sample5) / 5;
+
+    printf("\nRaw uV uV %d\n", uVraw);
+
+    zeroeduvolt = (uVraw - 670000) * 0.2;
 
     printf("\nZeroed uV %d\n", zeroeduvolt);
 
     uint32_t voltnano = zeroeduvolt * 1000;
 
-    return (voltnano/(TIA_GAIN[gain-1]));
+    uint32_t result = (voltnano/(TIA_GAIN[gain-1])) * 0.2;
+
+    return result;
 }
 
 //This returns the ADC value from the output of the LMP91000
