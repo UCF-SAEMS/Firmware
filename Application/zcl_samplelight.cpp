@@ -597,8 +597,33 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
     printf("error starting measurement\n");
   printf("measurements started\n");
 
+  uint16_t press = 1000;
+  int16_t rdy;
+  int16_t start;
+
+  rdy = scd30_probe();
+
+    while (rdy != 0)
+    {
+        printf("SCD sensor probing failed\n");
+        sensirion_sleep_usec(1000000); /* wait 1s */
+    }
+
+  printf("SCD sensor probing successful\n");
+
+  start = scd30_start_periodic_measurement(press);
+
+  if (start < 0)
+    printf("error starting measurement\n");
+  printf("measurements started\n");
+
   while (1)
   {
+      float resultco2[3] = {0, 0, 0};
+      rdy = scd30_read_measurement(&resultco2[0], &resultco2[1], &resultco2[2]);
+
+      printf("\nSCD30 result co2 %5.2f, temp %5.2f, hum %5.2f \n\n", resultco2[0], resultco2[1], resultco2[2]);
+
     sensirion_sleep_usec(SPS30_MEASUREMENT_DURATION_USEC); /* wait 1s */
     ret = sps30_read_measurement(&m);
     if (ret < 0)
