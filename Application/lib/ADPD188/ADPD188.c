@@ -675,54 +675,64 @@ int32_t adpd188_smoke_detect_setup(struct adpd188_dev *dev)
 {
     int32_t ret;
     uint16_t reg_data;
-//    struct adpd188_slot_config slota_conf, slotb_conf;
+    struct adpd188_slot_config slota_conf, slotb_conf;
+
+    //signal path config
+    ret = adpd188_reg_write(dev, ADPD188_REG_SLOTA_AFE_CFG, 0xADA5);
+    ret = adpd188_reg_write(dev, ADPD188_REG_SLOTA_TIA_CFG, 0x1C34);
+    ret = adpd188_reg_write(dev, ADPD188_REG_SLOTB_AFE_CFG, 0xADA5);
+    ret = adpd188_reg_write(dev, ADPD188_REG_SLOTB_TIA_CFG, 0x1C34);
 
     ret = adpd188_reg_read(dev, ADPD188_REG_SLOT_EN, &reg_data);
     if(ret != SUCCESS)
         return FAILURE;
 
-//    reg_data |= ADPD188_SLOT_EN_RDOUT_MODE_MASK |
-//            ADPD188_SLOT_EN_FIFO_OVRN_PREVENT_MASK;
-//
-//    ret = adpd188_reg_write(dev, ADPD188_REG_SLOT_EN, reg_data);
-//
-//    if(ret != SUCCESS)
-//        return FAILURE;
-//    slota_conf.slot_en = true;
-//    slota_conf.slot_id = ADPD188_SLOTA;
-//    slota_conf.sot_fifo_mode = ADPD188_32BIT_SUM;
-//    ret = adpd188_slot_setup(dev, slota_conf);
-//    if(ret != SUCCESS)
-//        return FAILURE;
-//    slotb_conf.slot_en = true;
-//    slotb_conf.slot_id = ADPD188_SLOTB;
-//    slotb_conf.sot_fifo_mode = ADPD188_32BIT_SUM;
-//    ret = adpd188_slot_setup(dev, slotb_conf);
-//    if(ret != SUCCESS)
-//        return FAILURE;
+    reg_data |= ADPD188_SLOT_EN_RDOUT_MODE_MASK |
+            ADPD188_SLOT_EN_FIFO_OVRN_PREVENT_MASK;
 
-    adpd188_reg_write(dev, ADPD188_REG_SLOT_EN, 0x30A9);
+    ret = adpd188_reg_write(dev, ADPD188_REG_SLOT_EN, reg_data);
 
-    ret = adpd188_adc_fsample_set(dev, 16.0);
+    if(ret != SUCCESS)
+        return FAILURE;
+    slota_conf.slot_en = true;
+    slota_conf.slot_id = ADPD188_SLOTA;
+    slota_conf.sot_fifo_mode = ADPD188_32BIT_SUM;
+    ret = adpd188_slot_setup(dev, slota_conf);
+    if(ret != SUCCESS)
+        return FAILURE;
+    slotb_conf.slot_en = true;
+    slotb_conf.slot_id = ADPD188_SLOTB;
+    slotb_conf.sot_fifo_mode = ADPD188_32BIT_SUM;
+    ret = adpd188_slot_setup(dev, slotb_conf);
     if(ret != SUCCESS)
         return FAILURE;
 
-    ret = adpd188_reg_read(dev, ADPD188_REG_PD_LED_SELECT, &reg_data);
+//    adpd188_reg_write(dev, ADPD188_REG_SLOT_EN, 0x30A9);
+
+    ret = adpd188_adc_fsample_set(dev, 16);
     if(ret != SUCCESS)
         return FAILURE;
-    /* Blue LED in slot A */
-    reg_data |= (1 << ADPD188_PD_LED_SELECT_SLOTA_LED_SEL_POS) &
-            ADPD188_PD_LED_SELECT_SLOTA_LED_SEL_MASK;
-    /* IR LED in slot A */
-    reg_data |= (3 << ADPD188_PD_LED_SELECT_SLOTB_LED_SEL_POS) &
-            ADPD188_PD_LED_SELECT_SLOTB_LED_SEL_MASK;
-    /* Combine PDs for both slots */
-    reg_data |= (1 << ADPD188_PD_LED_SELECT_SLOTA_PD_SEL_POS) &
-            ADPD188_PD_LED_SELECT_SLOTA_PD_SEL_MASK;
-    reg_data |= (1 << ADPD188_PD_LED_SELECT_SLOTB_PD_SEL_POS) &
-            ADPD188_PD_LED_SELECT_SLOTB_PD_SEL_MASK;
 
-    ret = adpd188_reg_write(dev, ADPD188_REG_PD_LED_SELECT, reg_data);
+//    ret = adpd188_reg_read(dev, ADPD188_REG_PD_LED_SELECT, &reg_data);
+//    if(ret != SUCCESS)
+//        return FAILURE;
+//    /* Blue LED in slot A */
+//    reg_data |= (1 << ADPD188_PD_LED_SELECT_SLOTA_LED_SEL_POS) &
+//            ADPD188_PD_LED_SELECT_SLOTA_LED_SEL_MASK;
+//    /* IR LED in slot A */
+//    reg_data |= (3 << ADPD188_PD_LED_SELECT_SLOTB_LED_SEL_POS) &
+//            ADPD188_PD_LED_SELECT_SLOTB_LED_SEL_MASK;
+//    /* Combine PDs for both slots */
+//    reg_data |= (1 << ADPD188_PD_LED_SELECT_SLOTA_PD_SEL_POS) &
+//            ADPD188_PD_LED_SELECT_SLOTA_PD_SEL_MASK;
+//    reg_data |= (1 << ADPD188_PD_LED_SELECT_SLOTB_PD_SEL_POS) &
+//            ADPD188_PD_LED_SELECT_SLOTB_PD_SEL_MASK;
+
+    //value 0x055D
+    //0x000D is blue for time slot A, IR for time slot B
+    //0x0550 is ext_IN1 connected to channel 1 for slot A and slot B
+    //0x0110 is PDET 1 and PDET2 connected
+    ret = adpd188_reg_write(dev, ADPD188_REG_PD_LED_SELECT, 0x011D);
     if(ret != SUCCESS)
         return FAILURE;
 
@@ -785,6 +795,7 @@ int32_t adpd188_smoke_detect_setup(struct adpd188_dev *dev)
         return FAILURE;
 
     /* Set IR LED 3 power */
+    //value 0x3039
     ret = adpd188_reg_read(dev, ADPD188_REG_ILED3_COARSE, &reg_data);
     if(ret != SUCCESS)
         return FAILURE;
@@ -800,6 +811,7 @@ int32_t adpd188_smoke_detect_setup(struct adpd188_dev *dev)
         return FAILURE;
 
     /* Set blue LED 1 power */
+    //value 0x3036
     ret = adpd188_reg_read(dev, ADPD188_REG_ILED1_COARSE, &reg_data);
     if(ret != SUCCESS)
         return FAILURE;
@@ -842,6 +854,11 @@ int32_t adpd188_smoke_detect_setup(struct adpd188_dev *dev)
     if(ret != SUCCESS)
         return FAILURE;
 
+    //LED Pulse time
+    //Sets 3us LED pulse for Slot A and Slot B
+    ret = adpd188_reg_write(dev, ADPD188_REG_SLOTA_LED_PULSE, 0x3020);
+    ret = adpd188_reg_write(dev, ADPD188_REG_SLOTB_LED_PULSE, 0x3020);
+
     /* Slot A integrator window */
     ret = adpd188_reg_read(dev, ADPD188_REG_SLOTA_AFE_WINDOW, &reg_data);
     if(ret != SUCCESS)
@@ -871,13 +888,17 @@ int32_t adpd188_smoke_detect_setup(struct adpd188_dev *dev)
         return FAILURE;
 
     /* Power down channels 2, 3 and 4 */
-    ret = adpd188_reg_read(dev, ADPD188_REG_AFE_PWR_CFG1, &reg_data);
-    if(ret != SUCCESS)
-        return FAILURE;
-    reg_data &= ~ADPD188_AFE_PWR_CFG1_AFE_POWERDOWN_MASK;
-    reg_data |= (0x1C << ADPD188_AFE_PWR_CFG1_AFE_POWERDOWN_POS) &
-            ADPD188_AFE_PWR_CFG1_AFE_POWERDOWN_MASK;
-    ret = adpd188_reg_write(dev, ADPD188_REG_AFE_PWR_CFG1, reg_data);
+    //value 0x30E6
+    //0x00E0 turns off CH1 integrator op amp
+    //0x00C0 keeps on CH1 integrator op amp
+
+//    ret = adpd188_reg_read(dev, ADPD188_REG_AFE_PWR_CFG1, &reg_data);
+//    if(ret != SUCCESS)
+//        return FAILURE;
+//    reg_data &= ~ADPD188_AFE_PWR_CFG1_AFE_POWERDOWN_MASK;
+//    reg_data |= (0x1C << ADPD188_AFE_PWR_CFG1_AFE_POWERDOWN_POS) &
+//            ADPD188_AFE_PWR_CFG1_AFE_POWERDOWN_MASK;
+    ret = adpd188_reg_write(dev, ADPD188_REG_AFE_PWR_CFG1, 0x30C6);
     if(ret != SUCCESS)
         return FAILURE;
 
