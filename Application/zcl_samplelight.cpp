@@ -622,6 +622,8 @@ for(;;)
 
   }
 
+  adpd188_reg_read(adpd_dev, ADPD188_REG_DEVID, &rxreg);
+
   printf("ID %04x \n\n------------------------------------------------------\n\r", rxreg);
 
 
