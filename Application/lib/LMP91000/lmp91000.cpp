@@ -616,7 +616,7 @@ double LMP91000::getCurrent(ADC_Handle adc)
 {
 
     uint32_t uVraw;
-    uint32_t  zeroeduvolt;
+    int32_t  zeroeduvolt;
     uint32_t  sample1;
     uint32_t  sample2;
     uint32_t  sample3;
@@ -645,7 +645,11 @@ double LMP91000::getCurrent(ADC_Handle adc)
 
     printf("\nRaw uV uV %d\n", uVraw);
 
-    zeroeduvolt = (uVraw - 670000) * 0.2;
+    zeroeduvolt = (uVraw - 672000) * 0.125;
+
+    //if the average value is less than the zero value, ensure readable value
+    if(zeroeduvolt <= 0 || zeroeduvolt > 1000)
+        zeroeduvolt = 100;
 
     printf("\nZeroed uV %d\n", zeroeduvolt);
 
