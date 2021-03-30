@@ -60,6 +60,7 @@
 #include <ti/sysbios/knl/Task.h>
 #include "lmp91000.h"
 #include "ti_drivers_config.h"
+#include <stdio.h>
 
 //#define CO_OUT 0
 
@@ -614,9 +615,49 @@ uint32_t LMP91000::getCurrentExtern(ADC_Handle adc, uint8_t extGain)
 double LMP91000::getCurrent(ADC_Handle adc)
 {
 
-    uint32_t voltnano = getADC(adc) * 1000;
+    uint32_t uVraw;
+    int32_t  zeroeduvolt;
+    uint32_t  sample1;
+    uint32_t  sample2;
+    uint32_t  sample3;
+    uint32_t  sample4;
+    uint32_t  sample5;
+    uVraw = getADC(adc);
 
-    return (voltnano/(TIA_GAIN[gain-1]));
+    while(uVraw > 50000000){
+        uVraw = getADC(adc);
+        zeroeduvolt = uVraw;
+        usleep(100);
+    }
+
+    sample1 = getADC(adc);
+    usleep(100);
+    sample2 = getADC(adc);
+    usleep(100);
+    sample3 = getADC(adc);
+    usleep(100);
+    sample4 = getADC(adc);
+    usleep(100);
+    sample5 = getADC(adc);
+    usleep(100);
+
+    uVraw = (sample1 + sample2 + sample3 + sample4 + sample5) / 5;
+
+    printf("\nRaw uV uV %d\n", uVraw);
+
+    zeroeduvolt = (uVraw - 672000) * 0.125;
+
+    //if the average value is less than the zero value, ensure readable value
+    if(zeroeduvolt <= 0 || zeroeduvolt > 1000)
+        zeroeduvolt = 100;
+
+    printf("\nZeroed uV %d\n", zeroeduvolt);
+
+    uint32_t voltnano = zeroeduvolt * 1000;
+
+    uint32_t result = (voltnano/(TIA_GAIN[gain-1])) * 0.2;
+
+    return result;
 }
 
 //This returns the ADC value from the output of the LMP91000

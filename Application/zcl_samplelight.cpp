@@ -1078,6 +1078,48 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
   ccs.begin();
   ccs.start(1);
+  lmp.unlock();
+
+  lmp.setBiasSign(1);
+  lmp.setRLoad(3);
+  lmp.setIntZ(0);
+  lmp.setGain(1);
+  lmp.setIntRefSource();
+  lmp.setBias(0);
+
+  for(;;){
+
+      uint8_t dataread = 0;
+      double temp;
+      uint32_t data = 0;
+
+      temp = lmp.getTempValue(adc);
+
+      dataread = lmp.read(LMP91000_MODECN_REG);
+
+      Task_sleep(2000 * (1000 / Clock_tickPeriod));
+
+      data = lmp.getADC(adc);
+
+      printf("value status in MODE reg %d output %.2f C, raw uV value %d \n", dataread, temp, data);
+
+      lmp.setThreeLead();
+
+      Task_sleep(2000 * (1000 / Clock_tickPeriod));
+
+      dataread = lmp.read(LMP91000_MODECN_REG);
+
+      data = lmp.getADC(adc);
+
+      Task_sleep(2000 * (1000 / Clock_tickPeriod));
+
+      double current = lmp.getCurrent(adc);
+
+      printf("value status in MODE reg %d, raw uV value %u, raw current %.2f \n \n", dataread, data, current);
+
+      Task_sleep(2000 * (1000 / Clock_tickPeriod));
+
+  }
 
   bme_dev = { 0 };
   bme_data = { 0 };
