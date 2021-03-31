@@ -608,6 +608,14 @@ for(;;)
 
   while(fifonumrx >= 4){
 
+      adpd188_reg_read(adpd_dev, 0x64, &samples);
+
+      printf("CH1 Slot A out: %04x \n\r", samples);
+
+      adpd188_reg_read(adpd_dev, 0x68, &samples);
+
+      printf("CH1 Slot B out: %04x \n\r", samples);
+
       adpd188_reg_read(adpd_dev, 0x60, &samples);
 
       printf("fifo out: %04x, ", samples);
