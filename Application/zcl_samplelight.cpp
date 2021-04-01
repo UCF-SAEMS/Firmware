@@ -189,6 +189,9 @@ extern "C" {
 #include "lib/CCS811/CCS811.h"
 #include "lib/Sensirion/SPS30/sps30.h"
 #include "lib/Sensirion/SCD30/scd30.h"
+#include "lib/ADPD188/ADPD188.h"
+#include "lib/ADPD188/adpd_i2c.h"
+#include "lib/ADPD188/adpd_gpio.h"
 
 /*********************************************************************
  * MACROS                                                           */
@@ -1071,6 +1074,68 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
   ccs.begin();
   ccs.start(1);
+  
+  adpd188_start(&i2c);
+  struct adpd188_dev *adpd_dev;
+  struct adpd188_init_param adpd_param;
+
+  uint16_t rxtemp[1];
+
+//  adpd_dev =  0 ;
+//  adpd_param = 0;
+
+  adpd188_init(&adpd_dev, &adpd_param);
+  adpd188_reg_write(adpd_dev, 0x4b, 0x2612 | (1 << 7));
+  adpd188_mode_set(adpd_dev, ADPD188_PROGRAM);
+  adpd188_smoke_detect_setup(adpd_dev);
+  adpd188_reg_read(adpd_dev, 0x4b, rxtemp);
+  adpd188_reg_write(adpd_dev, ADPD188_REG_STATUS, 0x80FF);
+  adpd188_mode_set(adpd_dev, ADPD188_NORMAL);
+
+for(;;)
+{
+  uint16_t samples;
+  uint16_t rxreg;
+  uint16_t fifonumrx;
+
+  adpd188_reg_read(adpd_dev, ADPD188_REG_STATUS, &rxreg);
+
+  printf("Status: %02x \n\r", rxreg);
+
+  fifonumrx = rxreg >> 8;
+
+  printf("fifo read number: %02x, %d \n\r", fifonumrx, fifonumrx);
+
+  while(fifonumrx >= 4){
+
+      adpd188_reg_read(adpd_dev, 0x64, &samples);
+
+      printf("CH1 Slot A out: %04x \n\r", samples);
+
+      adpd188_reg_read(adpd_dev, 0x68, &samples);
+
+      printf("CH1 Slot B out: %04x \n\r", samples);
+
+      adpd188_reg_read(adpd_dev, 0x60, &samples);
+
+      printf("fifo out: %04x, ", samples);
+
+      adpd188_reg_read(adpd_dev, 0x60, &samples);
+
+      printf("%04x\n\r", samples);
+
+      fifonumrx = fifonumrx - 4;
+
+      printf("fifo read number: %02x, %d \n\r", fifonumrx, fifonumrx);
+
+  }
+
+  adpd188_reg_read(adpd_dev, ADPD188_REG_DEVID, &rxreg);
+
+  printf("ID %04x \n\n------------------------------------------------------\n\r", rxreg);
+
+
+}
 
   bme_dev = { 0 };
   bme_data = { 0 };
