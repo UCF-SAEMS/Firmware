@@ -321,6 +321,8 @@ static Clock_Struct OnOffClkStruct;
 struct bme280_data bme_data;
 struct bme280_dev bme_dev;
 struct sps30_measurement m;
+struct adpd188_dev *adpd_dev;
+struct adpd188_init_param adpd_param;
 
 LMP91000 lmp = LMP91000(i2c, LMP91000_I2C_ADDRESS);
 ScioSense_CCS811 ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
@@ -824,7 +826,7 @@ static void SAEMS_getSensorData(void){
     // Particulates
     int16_t ret;
 
-    while (sps30_probe() != 0)
+    if (sps30_probe() != 0)
     {
       printf("SPS sensor probing failed\n");
       sensirion_sleep_usec(1000000); /* wait 1s */
@@ -854,7 +856,27 @@ static void SAEMS_getSensorData(void){
         sensorDataNew.pm4number           = 100 * m.nc_4p0;
         sensorDataNew.pm10number          = 100 * m.nc_10p0;   
       }
-  
+    //--------------------------------------------------------------------------------------
+    // Smoke
+      uint16_t samples;
+      uint16_t rxreg;
+      adpd188_reg_read(adpd_dev, ADPD188_REG_STATUS, &rxreg);    
+      uint16_t fifonumrx = rxreg >> 8;
+      
+      if( fifonumrx >= 4 ){
+        adpd188_reg_read(adpd_dev, 0x64, &samples);
+        printf("CH1 Slot A out: %04x \n", samples);
+        adpd188_reg_read(adpd_dev, 0x68, &samples);
+        printf("CH1 Slot B out: %04x \n", samples);
+        adpd188_reg_read(adpd_dev, 0x60, &samples);
+        printf("fifo out: %04x, ", samples);
+        sensorDataNew.smoke = samples;
+        adpd188_reg_read(adpd_dev, 0x60, &samples);
+        printf("%04x\n", samples);
+        fifonumrx = fifonumrx - 4;
+        printf("fifo read number: %02x, %d \n", fifonumrx, fifonumrx);
+      }
+
     //--------------------------------------------------------------------------------------
     // The following is sample data...
     #ifdef ZCL_MEASURE_TESTING
@@ -1074,16 +1096,9 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
   ccs.begin();
   ccs.start(1);
-  
+
   adpd188_start(&i2c);
-  struct adpd188_dev *adpd_dev;
-  struct adpd188_init_param adpd_param;
-
   uint16_t rxtemp[1];
-
-//  adpd_dev =  0 ;
-//  adpd_param = 0;
-
   adpd188_init(&adpd_dev, &adpd_param);
   adpd188_reg_write(adpd_dev, 0x4b, 0x2612 | (1 << 7));
   adpd188_mode_set(adpd_dev, ADPD188_PROGRAM);
@@ -1091,51 +1106,6 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   adpd188_reg_read(adpd_dev, 0x4b, rxtemp);
   adpd188_reg_write(adpd_dev, ADPD188_REG_STATUS, 0x80FF);
   adpd188_mode_set(adpd_dev, ADPD188_NORMAL);
-
-for(;;)
-{
-  uint16_t samples;
-  uint16_t rxreg;
-  uint16_t fifonumrx;
-
-  adpd188_reg_read(adpd_dev, ADPD188_REG_STATUS, &rxreg);
-
-  printf("Status: %02x \n\r", rxreg);
-
-  fifonumrx = rxreg >> 8;
-
-  printf("fifo read number: %02x, %d \n\r", fifonumrx, fifonumrx);
-
-  while(fifonumrx >= 4){
-
-      adpd188_reg_read(adpd_dev, 0x64, &samples);
-
-      printf("CH1 Slot A out: %04x \n\r", samples);
-
-      adpd188_reg_read(adpd_dev, 0x68, &samples);
-
-      printf("CH1 Slot B out: %04x \n\r", samples);
-
-      adpd188_reg_read(adpd_dev, 0x60, &samples);
-
-      printf("fifo out: %04x, ", samples);
-
-      adpd188_reg_read(adpd_dev, 0x60, &samples);
-
-      printf("%04x\n\r", samples);
-
-      fifonumrx = fifonumrx - 4;
-
-      printf("fifo read number: %02x, %d \n\r", fifonumrx, fifonumrx);
-
-  }
-
-  adpd188_reg_read(adpd_dev, ADPD188_REG_DEVID, &rxreg);
-
-  printf("ID %04x \n\n------------------------------------------------------\n\r", rxreg);
-
-
-}
 
   bme_dev = { 0 };
   bme_data = { 0 };
