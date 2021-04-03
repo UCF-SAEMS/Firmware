@@ -791,15 +791,6 @@ static void SAEMS_getSensorData(void){
     Display_printf(display, 2, 0, "%s", buffer);
     //--------------------------------------------------------------------------------------
     // Carbon Monoxide
-    lmp.unlock();
-    lmp.setBiasSign(1);
-    lmp.setRLoad(3);
-    lmp.setIntZ(0);
-    lmp.setGain(1);
-    lmp.setIntRefSource();
-    lmp.setBias(0);
-    lmp.setThreeLead();
-
     double nA = lmp.getCurrent(adc);
     double co_sensitivity = 7.00;
     printf("nanoAmps: %.2f nA\n", nA);
@@ -824,38 +815,24 @@ static void SAEMS_getSensorData(void){
     Display_printf(display, 5, 0, "%s", buffer);
     //--------------------------------------------------------------------------------------
     // Particulates
-    int16_t ret;
-
-    if (sps30_probe() != 0)
-    {
-      printf("SPS sensor probing failed\n");
-      sensirion_sleep_usec(1000000); /* wait 1s */
-    }
-    printf("SPS sensor probing successful\n");
-  
-    ret = sps30_start_measurement();
+    sensirion_sleep_usec(SPS30_MEASUREMENT_DURATION_USEC); /* wait 1s */
+    int ret = sps30_read_measurement(&m);
     if (ret < 0)
-      printf("error starting measurement\n");
-    printf("measurements started\n");
-  
-      sensirion_sleep_usec(SPS30_MEASUREMENT_DURATION_USEC); /* wait 1s */
-      ret = sps30_read_measurement(&m);
-      if (ret < 0)
-      {
-        printf("error reading measurement\n");
-      }
-      else
-      {
-        sensorDataNew.typicalparticlesize = 100 * m.typical_particle_size;
-        sensorDataNew.pm1mass             = 100 * m.mc_1p0;
-        sensorDataNew.pm2mass             = 100 * m.mc_2p5;
-        sensorDataNew.pm4mass             = 100 * m.mc_4p0;
-        sensorDataNew.pm10mass            = 100 * m.mc_10p0;
-        sensorDataNew.pm1number           = 100 * m.nc_1p0;
-        sensorDataNew.pm2number           = 100 * m.nc_2p5;          
-        sensorDataNew.pm4number           = 100 * m.nc_4p0;
-        sensorDataNew.pm10number          = 100 * m.nc_10p0;   
-      }
+    {
+      printf("error reading measurement\n");
+    }
+    else
+    {
+      sensorDataNew.typicalparticlesize = 100 * m.typical_particle_size;
+      sensorDataNew.pm1mass             = 100 * m.mc_1p0;
+      sensorDataNew.pm2mass             = 100 * m.mc_2p5;
+      sensorDataNew.pm4mass             = 100 * m.mc_4p0;
+      sensorDataNew.pm10mass            = 100 * m.mc_10p0;
+      sensorDataNew.pm1number           = 100 * m.nc_1p0;
+      sensorDataNew.pm2number           = 100 * m.nc_2p5;          
+      sensorDataNew.pm4number           = 100 * m.nc_4p0;
+      sensorDataNew.pm10number          = 100 * m.nc_10p0;   
+    }
     //--------------------------------------------------------------------------------------
     // Smoke
       uint16_t samples;
@@ -1043,6 +1020,61 @@ static void SAEMS_OnOff_Ramp( void ){
 
   }
 }
+
+
+/*****************************************************************
+ * @fn          SAEMS_Sensors_Initialization
+ * 
+ * @brief       Helper function to initialize the sensor subsystem on start-up
+ * 
+ * @param       none
+ * 
+ * @return      none
+ */
+
+void SAEMS_Sensors_Initialization(){
+  //------------------------------------------------------------
+  ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
+  ccs.begin();
+  ccs.start(1);
+  //------------------------------------------------------------
+  adpd188_start(&i2c);
+  uint16_t rxtemp[1];
+  adpd188_init(&adpd_dev, &adpd_param);
+  adpd188_reg_write(adpd_dev, 0x4b, 0x2612 | (1 << 7));
+  adpd188_mode_set(adpd_dev, ADPD188_PROGRAM);
+  adpd188_smoke_detect_setup(adpd_dev);
+  adpd188_reg_read(adpd_dev, 0x4b, rxtemp);
+  adpd188_reg_write(adpd_dev, ADPD188_REG_STATUS, 0x80FF);
+  adpd188_mode_set(adpd_dev, ADPD188_NORMAL);
+  //------------------------------------------------------------
+  lmp.unlock();
+  lmp.setBiasSign(1);
+  lmp.setRLoad(3);
+  lmp.setIntZ(0);
+  lmp.setGain(1);
+  lmp.setIntRefSource();
+  lmp.setBias(0);
+  lmp.setThreeLead();
+  //------------------------------------------------------------
+  bme_dev = { 0 };
+  bme_data = { 0 };
+  bme280_if_init(&bme_dev, &i2c);
+  //------------------------------------------------------------
+  sensirion_i2c_init(&i2c);
+  int16_t ret;
+  if (sps30_probe() != 0){
+    printf("SPS sensor probing failed\n");
+    sensirion_sleep_usec(1000000); /* wait 1s */
+  }
+  printf("SPS sensor probing successful\n");
+
+  ret = sps30_start_measurement();
+  if (ret < 0)
+    printf("error starting measurement\n");
+  printf("measurements started\n");
+  //------------------------------------------------------------
+}
 // ================================================================================================================
 // ================================================================================================================
 
@@ -1093,25 +1125,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   adc = ADC_open(CO_OUT, &ADCparams);
   ADC_Handle adc = ADC_open(CO_OUT, &ADCparams);
 
-  ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
-  ccs.begin();
-  ccs.start(1);
-
-  adpd188_start(&i2c);
-  uint16_t rxtemp[1];
-  adpd188_init(&adpd_dev, &adpd_param);
-  adpd188_reg_write(adpd_dev, 0x4b, 0x2612 | (1 << 7));
-  adpd188_mode_set(adpd_dev, ADPD188_PROGRAM);
-  adpd188_smoke_detect_setup(adpd_dev);
-  adpd188_reg_read(adpd_dev, 0x4b, rxtemp);
-  adpd188_reg_write(adpd_dev, ADPD188_REG_STATUS, 0x80FF);
-  adpd188_mode_set(adpd_dev, ADPD188_NORMAL);
-
-  bme_dev = { 0 };
-  bme_data = { 0 };
-  bme280_if_init(&bme_dev, &i2c);
-
-  sensirion_i2c_init(&i2c);
+  SAEMS_Sensors_Initialization();
 
   // Set up the io expander
   MCP23017 mcp = MCP23017(i2c, 0b0100001);
