@@ -973,7 +973,14 @@ static void SAEMS_OnOff_Ramp( void ){
   // get the current light level, increment, update the light level, and send to LED Board
   LightLevel = zclSampleLight_getCurrentLevelAttribute();
   printf("> Current Level: %d\n", LightLevel);
-  LightLevel += 10;
+
+  // if statement to get rid of the uint8_t overflow when level is at 100%
+  if( LightLevel + 10 >= LastLightLevel){
+    LightLevel = LastLightLevel;
+  }else{
+    LightLevel += 10;
+  }
+
   printf("> New Level: %d\n", LightLevel);
   zclSampleLight_updateCurrentLevelAttribute( LightLevel );
   ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
@@ -1560,7 +1567,6 @@ static void zclSampleLight_processDiscoveryTimeoutCallback(UArg a0)
     Semaphore_post(appSemHandle);
 }
 
-
 /*******************************************************************************
  * @fn      zclSampleLight_process_loop
  *
@@ -1590,7 +1596,6 @@ static void zclSampleLight_process_loop(void)
     {
         zstackmsg_genericReq_t *pMsg = NULL;
         bool msgProcessed = FALSE;
-
         /* Wait for response message */
         if(Semaphore_pend(appSemHandle, BIOS_WAIT_FOREVER ))
         {
