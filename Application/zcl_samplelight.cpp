@@ -747,7 +747,6 @@ static void SAEMS_LevelControlMoveToLevelCB( zclLCMoveToLevel_t *pCmd )
 static void SAEMS_SensorsCallback(UArg a0){
 
   (void)a0;     // Parameter is not used
-  printf("The Sensor Data Transfer Callback has been entered\n");
 
   appServiceTaskEvents |= SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT;
 
@@ -755,7 +754,7 @@ static void SAEMS_SensorsCallback(UArg a0){
   Semaphore_post(appSemHandle);
 }
 
-int state = 0;
+uint32_t reading_num = 1;
 /*************************************************************************
  * @fn      SAEMS_getSensorData
  *
@@ -766,53 +765,22 @@ int state = 0;
  * @return  none
  */
 static void SAEMS_getSensorData(void){
-    printf("Gathering Sensor Data...\n");
     // Using driver functions, get data from I2C lines and store in the new struct
     // TO-DO:
     //--------------------------------------------------------------------------------------
     // Temperature, Humidity, Pressure
     bme280_if_get_all_sensor_data(&bme_data, &bme_dev);
-    char buffer[500];
 
     sensorDataNew.temperature = 0.1 *bme_data.temperature;
     sensorDataNew.pressure =    0.1 *bme_data.pressure;
     sensorDataNew.humidity =    0.01 *bme_data.humidity;
-
-    buffer[0] = '\0';
-    sprintf(buffer, "BME280: %6u deg C, %7u hPa, %6u %%RH\r\n", bme_data.temperature, bme_data.pressure, bme_data.humidity);
-    Display_printf(display, 1, 0, "%s", buffer);
-
-    float temp     = 0.1f *sensorDataNew.temperature;
-    float pressure = 0.1f *sensorDataNew.pressure;
-    float humidity = 0.1f *sensorDataNew.humidity;
-
-    buffer[0] = '\0';
-    sprintf(buffer, "BME280: %6.2f deg C, %7.2f hPa, %6.2f %%RH\r\n", temp, pressure, humidity);
-    Display_printf(display, 2, 0, "%s", buffer);
     //--------------------------------------------------------------------------------------
-    // Carbon Monoxide
-    double nA = lmp.getCurrent(adc);
-    double co_sensitivity = 7.00;
-    printf("nanoAmps: %.2f nA\n", nA);
-    printf("CO Sensitivity: %.2f nA/ppm\n", co_sensitivity);
-    printf("PPM: %.2f ppm\n\n", (nA / co_sensitivity) );
-
-    sensorDataNew.carbonmonoxide = (uint16_t) ( (nA / co_sensitivity) * 100);
-    //--------------------------------------------------------------------------------------
-    // VOC
+    // VOC & CO2
     ccs.sample();
+
     sensorDataNew.carbondioxide = ccs.getECO2();
     sensorDataNew.voc = ccs.getTVOC();
     CCS811_co2 = sensorDataNew.carbondioxide;
-
-    buffer[0] = '\0';
-    sprintf(buffer, "CCS811: %u, %u\r\n", sensorDataNew.voc, sensorDataNew.carbondioxide);
-    Display_printf(display, 4, 0, "%s", buffer);
-    //--------------------------------------------------------------------------------------
-    // MOTION 
-    buffer[0] = '\0';
-    sprintf(buffer, "MOTION: %d\r\n", GPIO_read(PIR_SENSOR) );
-    Display_printf(display, 5, 0, "%s", buffer);
     //--------------------------------------------------------------------------------------
     // Particulates
     sensirion_sleep_usec(SPS30_MEASUREMENT_DURATION_USEC); /* wait 1s */
@@ -834,6 +802,12 @@ static void SAEMS_getSensorData(void){
       sensorDataNew.pm10number          = 100 * m.nc_10p0;   
     }
     //--------------------------------------------------------------------------------------
+    // Carbon Monoxide
+    double nA = lmp.getCurrent(adc);
+    double co_sensitivity = 7.00;
+
+    sensorDataNew.carbonmonoxide = (uint16_t) ( (nA / co_sensitivity) * 100);
+    //--------------------------------------------------------------------------------------
     // Smoke
       uint16_t samples;
       uint16_t rxreg;
@@ -842,18 +816,41 @@ static void SAEMS_getSensorData(void){
       
       if( fifonumrx >= 4 ){
         adpd188_reg_read(adpd_dev, 0x64, &samples);
-        printf("CH1 Slot A out: %04x \n", samples);
         adpd188_reg_read(adpd_dev, 0x68, &samples);
-        printf("CH1 Slot B out: %04x \n", samples);
         adpd188_reg_read(adpd_dev, 0x60, &samples);
-        printf("fifo out: %04x, ", samples);
         sensorDataNew.smoke = samples;
         adpd188_reg_read(adpd_dev, 0x60, &samples);
-        printf("%04x\n", samples);
         fifonumrx = fifonumrx - 4;
-        printf("fifo read number: %02x, %d \n", fifonumrx, fifonumrx);
       }
-
+    //--------------------------------------------------------------------------------------
+    printf("--------------------------------------------------------- \n");
+    printf("|#%d         S.A.E.M.S Device Measurements               |\n", reading_num++);
+    printf("--------------------------------------------------------- \n");
+    printf("|     Sensor     |   Measurement   |        Value       |\n");
+    printf("--------------------------------------------------------- \n");
+    printf("|     BME280     |   Temperature   |      %.2f C\t|\n", 0.1f*sensorDataNew.temperature);
+    printf("|     BME280     |     Pressure    |     %.1f hPa\t|\n", 0.1f*sensorDataNew.pressure);
+    printf("|     BME280     |     Humidity    |      %.2f %%\t|\n", 0.1f*sensorDataNew.humidity);
+    printf("|   EKMC1691111  |      Motion     |        %d\t\t|\n", sensorDataNew.occupancy);
+    printf("|     CCS811     |       CO2       |       %d ppm\t|\n", sensorDataNew.carbondioxide);
+    printf("|     CCS811     |       VOC       |        %d ppb\t|\n", sensorDataNew.voc);
+    printf("--------------------------------------------------------- \n");
+    printf("|                |    1.0 Mass     |       %.2f\t\t|\r\n"
+           "|                |    1.0 Count    |       %.2f\t|\r\n"
+           "|                |    2.5 Mass     |       %.2f\t\t|\r\n"
+           "|     SPS30      |    2.5 Count    |       %.2f\t|\r\n"
+           "| (Particulates) |    4.0 Mass     |       %.2f\t\t|\r\n"
+           "|                |    4.0 Count    |       %.2f\t|\r\n"
+           "|                |    10.0 Mass    |       %.2f\t\t|\r\n"
+           "|                |   10.0 Count    |       %.2f\t|\n",
+           sensorDataNew.pm1mass/100.00, sensorDataNew.pm1number/100.00, 
+           sensorDataNew.pm2mass/100.00, sensorDataNew.pm2number/100.00,
+           sensorDataNew.pm4mass/100.00, sensorDataNew.pm4number/100.00, 
+           sensorDataNew.pm10mass/100.00, sensorDataNew.pm10number/100.00);
+    printf("--------------------------------------------------------- \n");
+    printf("|    LMP91000    |       CO       |     %.2f ppm\t|\n", sensorDataNew.carbonmonoxide/100.00);
+    printf("|    ADPD188BI   |      Smoke     |        %d\t\t|\n", sensorDataNew.smoke);
+    printf("--------------------------------------------------------- \n");
     //--------------------------------------------------------------------------------------
     // The following is sample data...
     #ifdef ZCL_MEASURE_TESTING
@@ -1613,7 +1610,6 @@ static void zclSampleLight_process_loop(void)
             }
 
             if( appServiceTaskEvents & SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT ){
-              printf("Entering the Data Transfer functions\n");
               SAEMS_getSensorData();
               SAEMS_updateSensorData();
               

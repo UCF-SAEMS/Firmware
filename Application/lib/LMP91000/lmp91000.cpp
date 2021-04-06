@@ -643,15 +643,11 @@ double LMP91000::getCurrent(ADC_Handle adc)
 
     uVraw = (sample1 + sample2 + sample3 + sample4 + sample5) / 5;
 
-    printf("\nRaw uV uV %d\n", uVraw);
-
     zeroeduvolt = (uVraw - 672000) * 0.125;
 
     //if the average value is less than the zero value, ensure readable value
     if(zeroeduvolt <= 0 || zeroeduvolt > 1000)
         zeroeduvolt = 100;
-
-    printf("\nZeroed uV %d\n", zeroeduvolt);
 
     uint32_t voltnano = zeroeduvolt * 1000;
 
