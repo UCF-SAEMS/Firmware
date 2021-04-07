@@ -503,7 +503,7 @@ CONST zclAttrRec_t zclSampleLight_Attrs[] =
       ATTRID_LEVEL_DEFAULT_MOVE_RATE,
       ZCL_DATATYPE_UINT16,
       ACCESS_CONTROL_READ | ACCESS_CONTROL_WRITE,
-      (void *)&zclSampleLight_LevelDefaultMoveRate
+      (void *)&sensorDataCurrent.pollingRate
     }
   },
   {
@@ -1107,7 +1107,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
         Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId, &Req);
     }
 
-        
+        printf("\nCurrent Motion Polling Time: %u\n",(unsigned int)sensorDataCurrent.pollingRate);
 
 
     printf("***************************************\n");

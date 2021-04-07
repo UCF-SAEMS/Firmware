@@ -862,7 +862,6 @@ static void SAEMS_getSensorData(void){
       sensorDataNew.carbondioxide = 1000;
       sensorDataNew.smoke = 1000;
       sensorDataNew.voc = 1000;
-      sensorDataNew.particulates = 1000;
       sensorDataNew.occupancy = 0;
 
       measure_Testing = 1;
@@ -874,7 +873,6 @@ static void SAEMS_getSensorData(void){
         sensorDataNew.carbondioxide = 1250;
         sensorDataNew.smoke = 1250;
         sensorDataNew.voc = 1250;
-        sensorDataNew.particulates = 1250;
         sensorDataNew.occupancy = 1;
 
         measure_Testing = 0;
@@ -919,16 +917,26 @@ void SAEMS_detectedMotionInterrupt(uint_least8_t index){
  */ 
 static void SAEMS_MotionSensorCB(UArg a0){
   (void)a0;
-  // Motion State 0: Debouncing input for only 1 sample
+  // Motion State 0: Debouncing input for only 1 sample and wait for the defined interval before polling again
   if( motion_state == 0){
     printf("Input has been debounced...\t");
     debounce = 0;     motion_state = 1;
-    printf("Renewing Interval Timer: 30 secs\n");
-    UtilTimer_setTimeout( MotionSensorClkHandle, 30000);
+    printf("Waiting \"Defined SmartThings Interval\" secs to poll again\n");
+    // Disable the motion sensor interrupt and wait for the set amount of time before enabling 
+    GPIO_disableInt(PIR_SENSOR);
+    UtilTimer_setTimeout( MotionSensorClkHandle, (sensorDataCurrent.pollingRate*1000) );
     UtilTimer_start( &MotionSensorClkStruct );
   }
-  // Motion State 1:
+  // Motion State 1: Polling Rest Period finishes
   else if( motion_state == 1){
+    GPIO_enableInt(PIR_SENSOR);
+    // Poll for motion for 15 seconds 
+    motion_state = 2;
+    UtilTimer_setTimeout( MotionSensorClkHandle, 15000 );
+    UtilTimer_start( &MotionSensorClkStruct );
+  }
+  // Motion State 2: No motion detected during the polling period
+  else if( motion_state == 2){
     printf("NO MOTION DETECTED!\n");
     sensorDataNew.occupancy = 0;
     printf("Setting Occupancy: %d\t", sensorDataNew.occupancy);
@@ -1086,6 +1094,9 @@ void SAEMS_Sensors_Initialization(){
   if (ret < 0)
     printf("error starting measurement\n");
   printf("measurements started\n");
+  //------------------------------------------------------------
+  // Set the default polling rate (60s = 1 min)
+  sensorDataCurrent.pollingRate = 60;
   //------------------------------------------------------------
 }
 // ================================================================================================================

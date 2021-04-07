@@ -175,6 +175,7 @@ typedef struct SAEMS_SensorData_t {
     int16_t humidity;
     int16_t pressure;
     int16_t occupancy;
+    int16_t pollingRate;
     int16_t carbonmonoxide;
     int16_t carbondioxide;
     int16_t smoke;
