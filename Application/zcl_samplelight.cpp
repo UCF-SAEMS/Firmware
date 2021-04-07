@@ -967,6 +967,8 @@ static void SAEMS_OnOff_Timeout_Callback( UArg a0 ){
 static void SAEMS_OnOff_Ramp( void ){
   printf("SAMES_OnOff_Ramp()\n");
 
+  printf("Last Light Level: %d\n", LastLightLevel);
+
   // Received ON_OFF_ON COMMAND
   if( OnOff == LIGHT_ON ){
   printf("In the LIGHT_ON branch...\n");
@@ -1005,7 +1007,14 @@ static void SAEMS_OnOff_Ramp( void ){
   // get the current light level, decrement, update the light level, and send to LED Board
   LightLevel = zclSampleLight_getCurrentLevelAttribute();
   printf("> Current Level: %d\n", LightLevel);
-  LightLevel -= 10;
+
+  // if statement to get rid of the uint8_t overflow when level is at 0%
+  if( LightLevel < 10 ){
+    LightLevel = LastLightLevel;
+  }else{
+    LightLevel -= 10;
+  }
+
   printf("> New Level: %d\n", LightLevel);
   zclSampleLight_updateCurrentLevelAttribute( LightLevel );
   ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
