@@ -631,7 +631,7 @@ ZStatus_t SAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturatio
   SAEMS_ColorControl_CurrentSaturation = pCmd->saturation;
 
   // Pass the 'new hue and saturation' to the LED Board Driver Function
-  ledboard.hsi(scaledHue(), scaledSaturation(), scaledIntensity());
+  ledboard.hsi(scaledHue(), scaledSaturation(), scaledIntensity(), false);
 
   zstack_bdbRepChangedAttrValueReq_t ReqHue;
         ReqHue.attrID = ATTRID_COLOR_CONTROL_CURRENT_HUE;
@@ -731,7 +731,7 @@ static void SAEMS_LevelControlMoveToLevelCB( zclLCMoveToLevel_t *pCmd )
 
   zclSampleLight_updateCurrentLevelAttribute(newLevel);
 
-  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
+  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity(), false );
 }
 #endif
 
@@ -993,7 +993,7 @@ static void SAEMS_OnOff_Ramp( void ){
 
   printf("> New Level: %d\n", LightLevel);
   zclSampleLight_updateCurrentLevelAttribute( LightLevel );
-  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
+  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity(), false );
 
     // Re-start the timer until the condition has been met to stop ramping
     if( zclSampleLight_getCurrentLevelAttribute() >= LastLightLevel ){
@@ -1025,7 +1025,7 @@ static void SAEMS_OnOff_Ramp( void ){
 
   printf("> New Level: %d\n", LightLevel);
   zclSampleLight_updateCurrentLevelAttribute( LightLevel );
-  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
+  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity(), true );
 
     // Re-start the timer until the condition has been met to stop ramping
     if( zclSampleLight_getCurrentLevelAttribute() <= 10  ){
@@ -1164,7 +1164,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   led.set(RGB_States::RED | RGB_States::GREEN);
 
   ledboard.init();
-  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
+  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity(), false );
 
   GPIO_setCallback( PIR_SENSOR, SAEMS_detectedMotionInterrupt );
   GPIO_enableInt( PIR_SENSOR );
