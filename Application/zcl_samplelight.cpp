@@ -320,8 +320,11 @@ static Clock_Struct OnOffClkStruct;
 
 static Clock_Handle CarbonMonoxide_Alarm_ClkHandle;
 static Clock_Struct CarbonMonoxide_Alarm_ClkStruct;
+static Clock_Handle Smoke_Alarm_ClkHandle;
+static Clock_Struct Smoke_Alarm_ClkStruct;
 
 bool CO_ALARM = false;
+bool SMOKE_ALARM = false;
 
 struct bme280_data bme_data;
 struct bme280_dev bme_dev;
@@ -866,6 +869,12 @@ static void SAEMS_getSensorData(void){
       // Send Broadcast message to other SAEMS routers in the network
       // Zstackapi_AfDataReq OR zcl_AF_DataRequest - needs to be handled in zclSampleLight_processAfIncomingMsgInd
     }
+    // Smoke Alarm Handling
+    if(SMOKE_ALARM){
+      UtilTimer_start( &Smoke_Alarm_ClkStruct );
+      // Send Broadcast message to other SAEMS routers in the network
+      // Zstackapi_AfDataReq OR zcl_AF_DataRequest - needs to be handled in zclSampleLight_processAfIncomingMsgInd
+    }
       
     
     //--------------------------------------------------------------------------------------
@@ -1083,6 +1092,29 @@ static void SAEMS_CarbonMonoxide_Alarm_handler(UArg a0){
   }
 }
 
+int Smoke_alarm_state = 0;
+/*****************************************************************
+ * @fn        SAEMS_Smoke_Alarm_handler
+ * 
+ * @brief     Handler function for controlling alarm for Smoke Detection
+ * 
+ * @param     a0 - not in use
+ * 
+ * @return    none
+ */
+static void SAEMS_Smoke_Alarm_handler(UArg a0){
+  (void)a0;
+
+  // make the alarm beep every 1.5 sec
+  if(CO_alarm_state == 0){
+    printf("SMOKE: ALARM ON\n");
+    CO_alarm_state = 1;
+  }
+  else if(CO_alarm_state == 1){
+    printf("SMOKE: ALARM OFF\n");
+    CO_alarm_state = 0;
+  }
+}
 /*****************************************************************
  * @fn          SAEMS_Sensors_Initialization
  * 
@@ -1593,6 +1625,16 @@ static void zclSampleLight_initializeClocks(void)
     500,
     1000, false, 0);
     // =============================================================
+
+    // =============================================================
+    // ================= Carbon Monoxide Alarm Clock ===============
+    Smoke_Alarm_ClkHandle = UtilTimer_construct(
+    &Smoke_Alarm_ClkStruct,
+    SAEMS_Smoke_Alarm_handler,
+    1500,
+    3000, false, 0);
+    // =============================================================
+
 }
 
 #if ZG_BUILD_ENDDEVICE_TYPE
