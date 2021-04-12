@@ -318,6 +318,11 @@ static Clock_Struct MotionSensorClkStruct;
 static Clock_Handle OnOffClkHandle;
 static Clock_Struct OnOffClkStruct;
 
+static Clock_Handle CarbonMonoxide_Alarm_ClkHandle;
+static Clock_Struct CarbonMonoxide_Alarm_ClkStruct;
+
+bool CO_ALARM = false;
+
 struct bme280_data bme_data;
 struct bme280_dev bme_dev;
 struct sps30_measurement m;
@@ -806,7 +811,10 @@ static void SAEMS_getSensorData(void){
     double nA = lmp.getCurrent(adc);
     double co_sensitivity = 7.00;
 
-    sensorDataNew.carbonmonoxide = (uint16_t) ( (nA / co_sensitivity) * 100);
+    sensorDataNew.carbonmonoxide = (uint16_t) ( (nA / co_sensitivity));
+    // IF THE CARBON MONOXIDE MEASUREMENT IS ABOVE 50 -> SET OFF THE ALARM
+    if(sensorDataNew.carbonmonoxide > 50)
+      CO_ALARM = true;
     //--------------------------------------------------------------------------------------
     // Smoke
       uint16_t samples;
@@ -851,6 +859,15 @@ static void SAEMS_getSensorData(void){
     printf("|    LMP91000    |       CO       |     %.2f ppm\t|\n", sensorDataNew.carbonmonoxide/100.00);
     printf("|    ADPD188BI   |      Smoke     |        %d\t\t|\n", sensorDataNew.smoke);
     printf("--------------------------------------------------------- \n");
+   
+    // CO Alarm Handling
+    if(CO_ALARM){
+      UtilTimer_start( &CarbonMonoxide_Alarm_ClkStruct );
+      // Send Broadcast message to other SAEMS routers in the network
+      // Zstackapi_AfDataReq OR zcl_AF_DataRequest - needs to be handled in zclSampleLight_processAfIncomingMsgInd
+    }
+      
+    
     //--------------------------------------------------------------------------------------
     // The following is sample data...
     #ifdef ZCL_MEASURE_TESTING
@@ -1042,6 +1059,29 @@ static void SAEMS_OnOff_Ramp( void ){
   }
 }
 
+int CO_alarm_state = 0;
+/*****************************************************************
+ * @fn          SAEMS_CarbonMonoxide_Alarm_handler
+ * 
+ * @brief       Handler function for controlling alarm on Carbon Monoxide 
+ * 
+ * @param       a0 - not in use
+ * 
+ * @return      none
+ */
+static void SAEMS_CarbonMonoxide_Alarm_handler(UArg a0){
+  (void)a0;
+
+  // make the alarm beep every .5 sec
+  if(CO_alarm_state == 0){
+    printf("CARBON MONOXIDE: ALARM ON\n");
+    CO_alarm_state = 1;
+  }
+  else if(CO_alarm_state == 1){
+    printf("CARBON MONOXIDE: ALARM OFF\n");
+    CO_alarm_state = 0;
+  }
+}
 
 /*****************************************************************
  * @fn          SAEMS_Sensors_Initialization
@@ -1543,6 +1583,15 @@ static void zclSampleLight_initializeClocks(void)
     SAEMS_OnOff_Timeout_Callback,
     25,
     0, false, 0); 
+    // =============================================================
+
+    // =============================================================
+    // ================= Carbon Monoxide Alarm Clock ===============
+    CarbonMonoxide_Alarm_ClkHandle = UtilTimer_construct(
+    &CarbonMonoxide_Alarm_ClkStruct,
+    SAEMS_CarbonMonoxide_Alarm_handler,
+    500,
+    1000, false, 0);
     // =============================================================
 }
 
