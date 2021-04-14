@@ -324,7 +324,12 @@ static Clock_Handle Smoke_Alarm_ClkHandle;
 static Clock_Struct Smoke_Alarm_ClkStruct;
 
 bool CO_ALARM = false;
+uint8_t CO_BroadcastMsg[] = {"\0\0\30CO"};
+uint8_t CO_transID = 0;
+
 bool SMOKE_ALARM = false;
+uint8_t Smoke_BroadcastMsg[] = {"\0\0\30Smoke"};;
+uint8_t Smoke_transID = 0;
 
 struct bme280_data bme_data;
 struct bme280_dev bme_dev;
@@ -450,6 +455,10 @@ static void SAEMS_getSensorData(void);
 float scaledHue(void);
 float scaledSaturation(void);
 float scaledIntensity(void);
+
+static void send_COAlarm_Broadcast(void);
+static void send_SmokeAlarm_Broadcast(void);
+
 // ===============================================================================================================
 // ===============================================================================================================
 
@@ -867,13 +876,15 @@ static void SAEMS_getSensorData(void){
     if(CO_ALARM){
       UtilTimer_start( &CarbonMonoxide_Alarm_ClkStruct );
       // Send Broadcast message to other SAEMS routers in the network
-      // Zstackapi_AfDataReq OR zcl_AF_DataRequest - needs to be handled in zclSampleLight_processAfIncomingMsgInd
+      send_COAlarm_Broadcast();
+      // needs to be handled in zclSampleLight_processAfIncomingMsgInd
     }
     // Smoke Alarm Handling
     if(SMOKE_ALARM){
       UtilTimer_start( &Smoke_Alarm_ClkStruct );
       // Send Broadcast message to other SAEMS routers in the network
-      // Zstackapi_AfDataReq OR zcl_AF_DataRequest - needs to be handled in zclSampleLight_processAfIncomingMsgInd
+      send_SmokeAlarm_Broadcast();
+      // needs to be handled in zclSampleLight_processAfIncomingMsgInd
     }
       
     
@@ -906,6 +917,91 @@ static void SAEMS_getSensorData(void){
     #endif
 }
 
+/************************************************************
+ * @fn        send_COAlarm_Broadcast
+ * 
+ * @brief     Helper function for sending Broadcast for CO Alarm
+ * 
+ * @param     none  
+ * 
+ * @return    none
+ */
+static void send_COAlarm_Broadcast(){
+  // Get the ZCL Frame Counter
+  zstack_getZCLFrameCounterRsp_t pRsp;
+  Zstackapi_getZCLFrameCounterReq(appServiceTaskId, &pRsp);
+
+  // Increment the transaction ID of the message by 1
+  CO_BroadcastMsg[1] = CO_transID++;
+
+  // Construct the Raw Data message to send out over broadcast
+  zstack_afDataReq_t COreq;
+  COreq.dstAddr.addrMode = zstack_AFAddrMode_BROADCAST;
+  COreq.dstAddr.addr.shortAddr = NWK_BROADCAST_SHORTADDR_DEVALL;
+  COreq.dstAddr.endpoint = SAMPLELIGHT_ENDPOINT;
+  COreq.pRelayList = NULL;
+  COreq.n_relayList = 0;
+  COreq.srcEndpoint = SAMPLELIGHT_ENDPOINT;
+  COreq.clusterID = SAEMS_ALARM_CLUSTER_ID;
+  COreq.transID = &pRsp.zclFrameCounter;
+  COreq.options.ackRequest = FALSE;
+  COreq.options.apsSecurity = FALSE;
+  COreq.options.limitConcentrator = FALSE;
+  COreq.options.skipRouting = FALSE;
+  COreq.options.suppressRouteDisc = FALSE;
+  COreq.options.wildcardProfileID = FALSE;
+  COreq.radius = AF_DEFAULT_RADIUS;
+  COreq.n_payload = sizeof(CO_BroadcastMsg);
+  COreq.pPayload = CO_BroadcastMsg;
+
+  // Check the status for any errors
+  zstack_ZStatusValues status = Zstackapi_AfDataReq(appServiceTaskId, &COreq);
+  // Reset the associated boolean variable to FALSE
+  CO_ALARM = false;
+}
+
+/************************************************************
+ * @fn        send_SmokeAlarm_Broadcast
+ * 
+ * @brief     Helper function for sending Broadcast for Smoke Alarm
+ * 
+ * @param     none  
+ * 
+ * @return    none
+ */
+static void send_SmokeAlarm_Broadcast(){
+  // Get the ZCL Frame Counter
+  zstack_getZCLFrameCounterRsp_t pRsp;
+  Zstackapi_getZCLFrameCounterReq(appServiceTaskId, &pRsp);
+
+  // Increment the transaction ID of the message by 1
+  Smoke_BroadcastMsg[1] = Smoke_transID++;
+
+  // Construct the Raw Data message to send out over broadcast
+  zstack_afDataReq_t SMOKEreq;
+  SMOKEreq.dstAddr.addrMode = zstack_AFAddrMode_BROADCAST;
+  SMOKEreq.dstAddr.addr.shortAddr = NWK_BROADCAST_SHORTADDR_DEVALL;
+  SMOKEreq.dstAddr.endpoint = SAMPLELIGHT_ENDPOINT;
+  SMOKEreq.pRelayList = NULL;
+  SMOKEreq.n_relayList = 0;
+  SMOKEreq.srcEndpoint = SAMPLELIGHT_ENDPOINT;
+  SMOKEreq.clusterID = SAEMS_ALARM_CLUSTER_ID;
+  SMOKEreq.transID = &pRsp.zclFrameCounter;
+  SMOKEreq.options.ackRequest = FALSE;
+  SMOKEreq.options.apsSecurity = FALSE;
+  SMOKEreq.options.limitConcentrator = FALSE;
+  SMOKEreq.options.skipRouting = FALSE;
+  SMOKEreq.options.suppressRouteDisc = FALSE;
+  SMOKEreq.options.wildcardProfileID = FALSE;
+  SMOKEreq.radius = AF_DEFAULT_RADIUS;
+  SMOKEreq.n_payload = sizeof(Smoke_BroadcastMsg);
+  SMOKEreq.pPayload = Smoke_BroadcastMsg;
+
+  // Check the status for any errors
+  zstack_ZStatusValues status = Zstackapi_AfDataReq(appServiceTaskId, &SMOKEreq);
+  // Reset the associated boolean variable to FALSE
+  SMOKE_ALARM = false;
+}
 /************************************************************
  * @fn        SAEMS_detectedMotionInterrupt
  * 
