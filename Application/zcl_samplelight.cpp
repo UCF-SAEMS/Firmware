@@ -942,7 +942,7 @@ static void send_COAlarm_Broadcast(){
   COreq.pRelayList = NULL;
   COreq.n_relayList = 0;
   COreq.srcEndpoint = SAMPLELIGHT_ENDPOINT;
-  COreq.clusterID = SAEMS_ALARM_CLUSTER_ID;
+  COreq.clusterID = SAEMS_CO_ALARM_CLUSTER_ID;
   COreq.transID = &pRsp.zclFrameCounter;
   COreq.options.ackRequest = FALSE;
   COreq.options.apsSecurity = FALSE;
@@ -985,7 +985,7 @@ static void send_SmokeAlarm_Broadcast(){
   SMOKEreq.pRelayList = NULL;
   SMOKEreq.n_relayList = 0;
   SMOKEreq.srcEndpoint = SAMPLELIGHT_ENDPOINT;
-  SMOKEreq.clusterID = SAEMS_ALARM_CLUSTER_ID;
+  SMOKEreq.clusterID = SAEMS_SMOKE_ALARM_CLUSTER_ID;
   SMOKEreq.transID = &pRsp.zclFrameCounter;
   SMOKEreq.options.ackRequest = FALSE;
   SMOKEreq.options.apsSecurity = FALSE;
