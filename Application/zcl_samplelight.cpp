@@ -322,6 +322,8 @@ static Clock_Handle CarbonMonoxide_Alarm_ClkHandle;
 static Clock_Struct CarbonMonoxide_Alarm_ClkStruct;
 static Clock_Handle Smoke_Alarm_ClkHandle;
 static Clock_Struct Smoke_Alarm_ClkStruct;
+static Clock_Handle ALARM_CLKHANDLE;
+static Clock_Struct ALARM_CLKSTRUCT;
 
 bool CO_ALARM = false;
 uint8_t CO_BroadcastMsg[] = {"\0\0\30CO"};
@@ -823,7 +825,7 @@ static void SAEMS_getSensorData(void){
     double nA = lmp.getCurrent(adc);
     double co_sensitivity = 7.00;
 
-    sensorDataNew.carbonmonoxide = (uint16_t) ( (nA / co_sensitivity));
+    sensorDataNew.carbonmonoxide = (uint16_t) ( ceil(nA / co_sensitivity) );
     // IF THE CARBON MONOXIDE MEASUREMENT IS ABOVE 50 -> SET OFF THE ALARM
     if(sensorDataNew.carbonmonoxide > 50)
       CO_ALARM = true;
@@ -842,6 +844,9 @@ static void SAEMS_getSensorData(void){
         adpd188_reg_read(adpd_dev, 0x60, &samples);
         fifonumrx = fifonumrx - 4;
       }
+
+      // NEED TO ADD IF STATEMENT FOR SMOKE LEVEL
+
     //--------------------------------------------------------------------------------------
     printf("--------------------------------------------------------- \n");
     printf("|#%d         S.A.E.M.S Device Measurements               |\n", reading_num++);
@@ -868,12 +873,14 @@ static void SAEMS_getSensorData(void){
            sensorDataNew.pm4mass/100.00, sensorDataNew.pm4number/100.00, 
            sensorDataNew.pm10mass/100.00, sensorDataNew.pm10number/100.00);
     printf("--------------------------------------------------------- \n");
-    printf("|    LMP91000    |       CO       |     %.2f ppm\t|\n", sensorDataNew.carbonmonoxide/100.00);
+    printf("|    LMP91000    |       CO       |     %.2f ppm\t|\n", sensorDataNew.carbonmonoxide/1.00);
     printf("|    ADPD188BI   |      Smoke     |        %d\t\t|\n", sensorDataNew.smoke);
     printf("--------------------------------------------------------- \n");
    
     // CO Alarm Handling
     if(CO_ALARM){
+      // Start the CO Alarm and the Alarm Timer
+      UtilTimer_start( &ALARM_CLKSTRUCT );
       UtilTimer_start( &CarbonMonoxide_Alarm_ClkStruct );
       // Send Broadcast message to other SAEMS routers in the network
       send_COAlarm_Broadcast();
@@ -881,6 +888,8 @@ static void SAEMS_getSensorData(void){
     }
     // Smoke Alarm Handling
     if(SMOKE_ALARM){
+      // Start the Smoke Alarm and the Alarm Timer
+      UtilTimer_start( &ALARM_CLKSTRUCT );
       UtilTimer_start( &Smoke_Alarm_ClkStruct );
       // Send Broadcast message to other SAEMS routers in the network
       send_SmokeAlarm_Broadcast();
@@ -1209,6 +1218,35 @@ static void SAEMS_Smoke_Alarm_handler(UArg a0){
   else if(CO_alarm_state == 1){
     printf("SMOKE: ALARM OFF\n");
     CO_alarm_state = 0;
+  }
+}
+
+/*****************************************************************
+ * @fn        SAEMS_ALARM_handler
+ * 
+ * @brief     Handler function for controlling the duration of an alarm
+ * 
+ * @param     a0 - not in use
+ * 
+ * @return    none
+ */
+static void SAEMS_ALARM_handler(UArg a0){
+  (void)a0;
+  // If CO or smoke is greater than their respective values 
+  //  - Continue the alarm
+  //  - Otherwise, stop the alarm
+  if(sensorDataNew.carbonmonoxide > 50){
+    UtilTimer_start( &ALARM_CLKSTRUCT );
+  }else{
+    UtilTimer_stop( &ALARM_CLKSTRUCT );
+    UtilTimer_stop( &CarbonMonoxide_Alarm_ClkStruct );
+  }
+
+  if(sensorDataNew.smoke > 9999){
+    UtilTimer_start( &ALARM_CLKSTRUCT );
+  }else{
+    UtilTimer_start( &ALARM_CLKSTRUCT );
+    UtilTimer_stop( &Smoke_Alarm_ClkStruct );
   }
 }
 /*****************************************************************
@@ -1715,6 +1753,15 @@ static void zclSampleLight_initializeClocks(void)
 
     // =============================================================
     // ================= Carbon Monoxide Alarm Clock ===============
+    ALARM_CLKHANDLE = UtilTimer_construct(
+    &ALARM_CLKSTRUCT,
+    SAEMS_ALARM_handler,
+    30000,  
+    0, false, 0);
+    // =============================================================    
+
+    // =============================================================
+    // ================= Carbon Monoxide Alarm Clock ===============
     CarbonMonoxide_Alarm_ClkHandle = UtilTimer_construct(
     &CarbonMonoxide_Alarm_ClkStruct,
     SAEMS_CarbonMonoxide_Alarm_handler,
@@ -1723,7 +1770,7 @@ static void zclSampleLight_initializeClocks(void)
     // =============================================================
 
     // =============================================================
-    // ================= Carbon Monoxide Alarm Clock ===============
+    // ====================== Smoke Alarm Clock ====================
     Smoke_Alarm_ClkHandle = UtilTimer_construct(
     &Smoke_Alarm_ClkStruct,
     SAEMS_Smoke_Alarm_handler,
@@ -2220,6 +2267,17 @@ static void zclSampleLight_processAfIncomingMsgInd(zstack_afIncomingMsgInd_t *pI
     afMsg.cmd.Data = pInMsg->pPayload;
 
     zcl_ProcessMessageMSG(&afMsg);
+
+    // Incoming Alarm Signal Handling
+    //  check to see if the message was a broadcast message
+    if(afMsg.wasBroadcast){
+      // If the ClusterId is FF01 - raise the CO Alarm
+      if(afMsg.clusterId == SAEMS_CO_ALARM_CLUSTER_ID)
+        CO_ALARM = true;
+      // If the ClusterIF is FF02 - raise the Smoke Alarm
+      else if(afMsg.clusterId == SAEMS_SMOKE_ALARM_CLUSTER_ID)
+        SMOKE_ALARM = true;
+    }
 }
 
 

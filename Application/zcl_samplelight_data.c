@@ -1050,7 +1050,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     }
 
     // Update carbonmonoxide value
-    if (abs(sensorDataCurrent.carbonmonoxide - sensorDataNew.carbonmonoxide) > CARBONMONOXIDE_UPDATE_THRESHOLD) {
+    if (abs(sensorDataCurrent.carbonmonoxide - sensorDataNew.carbonmonoxide) >= CARBONMONOXIDE_UPDATE_THRESHOLD) {
         sensorDataCurrent.carbonmonoxide = sensorDataNew.carbonmonoxide;
         printf("Carbonmonoxide updated to %u\n", (unsigned int)sensorDataCurrent.carbonmonoxide);
 
