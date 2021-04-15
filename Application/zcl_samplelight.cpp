@@ -311,6 +311,8 @@ I2C_Params i2cParams;
 I2C_Transaction i2cTransaction;
 ADC_Params ADCparams;
 ADC_Handle adc;
+PWM_Handle four_khz_out_handle;
+PWM_Params four_khz_out_params;
 
 static Clock_Handle SensorDataClkHandle;
 static Clock_Struct SensorDataClkStruct;
@@ -1189,11 +1191,13 @@ static void SAEMS_CarbonMonoxide_Alarm_handler(UArg a0){
 
   // make the alarm beep every .5 sec
   if(CO_alarm_state == 0){
-    printf("CARBON MONOXIDE: ALARM ON\n");
+    // CARBON MONOXIDE: ALARM ON
+    PWM_start(four_khz_out_handle);
     CO_alarm_state = 1;
   }
   else if(CO_alarm_state == 1){
-    printf("CARBON MONOXIDE: ALARM OFF\n");
+    // CARBON MONOXIDE: ALARM OFF
+    PWM_stop(four_khz_out_handle);
     CO_alarm_state = 0;
   }
 }
@@ -1213,11 +1217,13 @@ static void SAEMS_Smoke_Alarm_handler(UArg a0){
 
   // make the alarm beep every 1.5 sec
   if(CO_alarm_state == 0){
-    printf("SMOKE: ALARM ON\n");
+    // SMOKE: ALARM ON
+    PWM_start(four_khz_out_handle);
     CO_alarm_state = 1;
   }
   else if(CO_alarm_state == 1){
-    printf("SMOKE: ALARM OFF\n");
+    // SMOKE: ALARM OFF
+    PWM_stop(four_khz_out_handle);
     CO_alarm_state = 0;
   }
 }
@@ -1334,37 +1340,18 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   I2C_init();
   ADC_init();
   GPIO_init();
-
-  //=================================================================================
   PWM_init();
-
-  PWM_Handle four_khz_out_handle;
-  PWM_Params four_khz_out_params;
 
   PWM_Params_init(&four_khz_out_params);
   four_khz_out_params.periodUnits  = PWM_PERIOD_HZ;               // Period is in Hz
   four_khz_out_params.periodValue  = 4000;                        // 4kHz
   four_khz_out_params.dutyUnits    = PWM_DUTY_FRACTION;           // Duty is fraction of period
   four_khz_out_params.dutyValue    = PWM_DUTY_FRACTION_MAX / 2;   // 50% duty cycle
-
   four_khz_out_handle = PWM_open(CONFIG_PWM_4KHZ, &four_khz_out_params);
   if (four_khz_out_handle == NULL) {
           /* CONFIG_PWM_4KHZ did not open */
           while (1);
       }
-  PWM_start(four_khz_out_handle);
-  //=================================================================================
-  Display_Handle display;
-  /* Open the display for output */
-  display = Display_open(Display_Type_UART, NULL);
-  if (display == NULL)
-  {
-    /* Failed to open display driver */
-    while (1)
-      ;
-  }
-
-  Display_printf(display, 0, 0, "-- SAEMS Startup --");
 
   I2C_Params_init(&i2cParams);
   i2cParams.bitRate = I2C_100kHz;

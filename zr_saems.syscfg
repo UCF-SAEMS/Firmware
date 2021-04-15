@@ -110,8 +110,7 @@ NVS1.internalFlash.regionSize = 0x4000;
 PWM1.$name                            = "CONFIG_PWM_4KHZ";
 PWM1.timerObject.$name                = "CONFIG_GPTIMER_0";
 PWM1.timerObject.timer.pwmPin.$assign = "boosterpack.13";
-PWM1.timerObject.pwmPinInstance.$name = "CONFIG_PIN_7";
-scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad Button BTN-1 \(Left\) on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",PWM1.timerObject.timer.pwmPin);
+PWM1.timerObject.pwmPinInstance.$name = "P";
 
 RF.$hardware             = system.deviceData.board.components["SKY13317-373LF"];
 RF.rfAntennaPin0.$assign = "41";
@@ -154,8 +153,9 @@ zstack.advanced.tableSize.bindingTableSize   = 16;
  * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
  * re-solve from scratch.
  */
-Display1.uart.uart.$suggestSolution    = "UART1";
-I2C1.i2c.$suggestSolution              = "I2C0";
-SPI1.spi.$suggestSolution              = "SSI0";
-SPI1.spi.dmaRxChannel.$suggestSolution = "DMA_CH3";
-SPI1.spi.dmaTxChannel.$suggestSolution = "DMA_CH4";
+Display1.uart.uart.$suggestSolution     = "UART1";
+I2C1.i2c.$suggestSolution               = "I2C0";
+PWM1.timerObject.timer.$suggestSolution = "GPTM0";
+SPI1.spi.$suggestSolution               = "SSI0";
+SPI1.spi.dmaRxChannel.$suggestSolution  = "DMA_CH3";
+SPI1.spi.dmaTxChannel.$suggestSolution  = "DMA_CH4";
