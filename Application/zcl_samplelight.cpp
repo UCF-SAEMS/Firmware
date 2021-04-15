@@ -345,6 +345,8 @@ struct adpd188_init_param adpd_param;
 LMP91000 lmp = LMP91000(i2c, LMP91000_I2C_ADDRESS);
 ScioSense_CCS811 ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
 LEDBoard ledboard = LEDBoard(CONFIG_SPI_LEDBOARD);
+MCP23017 mcp = MCP23017(i2c, 0b0100001);
+StaticLED led = StaticLED();
 // ==================================================================================================================
 // ==================================================================================================================
 static uint8_t endPointDiscovered = 0x00;
@@ -776,6 +778,7 @@ static void SAEMS_SensorsCallback(UArg a0){
   Semaphore_post(appSemHandle);
 }
 
+int led_state = 0;
 uint32_t reading_num = 1;
 /*************************************************************************
  * @fn      SAEMS_getSensorData
@@ -825,8 +828,10 @@ static void SAEMS_getSensorData(void){
     }
     //--------------------------------------------------------------------------------------
     // Carbon Monoxide
+    adc = ADC_open(CO_OUT, &ADCparams);
     double nA = lmp.getCurrent(adc);
     double co_sensitivity = 7.00;
+    ADC_close( adc );
 
     sensorDataNew.carbonmonoxide = (uint16_t) ( ceil(nA / co_sensitivity) );
     // IF THE CARBON MONOXIDE MEASUREMENT IS ABOVE 50 -> SET OFF THE ALARM
@@ -850,6 +855,31 @@ static void SAEMS_getSensorData(void){
 
       // NEED TO ADD IF STATEMENT FOR SMOKE LEVEL
 
+    //--------------------------------------------------------------------------------------
+    // Power System Usage
+
+    // Voltage is obtained from the 5V_MainDet (DIO24)
+    adc = ADC_open(POWER_POLL, &ADCparams);
+    uint16_t voltage;
+    ADC_convert(adc, &voltage);
+    uint32_t voltage_uV = ADC_convertToMicroVolts(adc, voltage);
+    ADC_close(adc);
+
+    // If the voltage is less than 1V
+    if( voltage_uV < 1000000){
+      // Toggle LED between Green and Off - the device is powered from the battery
+      if(led_state == 0){
+        led.set( RGB_States::GREEN );     led_state = 1;
+      }
+      else if(led_state == 1){
+        led.set(false, false, false);     led_state = 0;
+      }
+    }
+    else{
+      // Otherwise, display steady Green and Red on the LED - the device is powered through PoE
+      led.set(RGB_States::RED | RGB_States::GREEN);
+    } 
+      
     //--------------------------------------------------------------------------------------
     printf("--------------------------------------------------------- \n");
     printf("|#%d         S.A.E.M.S Device Measurements               |\n", reading_num++);
@@ -1290,6 +1320,7 @@ void SAEMS_Sensors_Initialization(){
   lmp.setIntRefSource();
   lmp.setBias(0);
   lmp.setThreeLead();
+  ADC_close(adc);
   //------------------------------------------------------------
   bme_dev = { 0 };
   bme_data = { 0 };
@@ -1348,10 +1379,8 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   four_khz_out_params.dutyUnits    = PWM_DUTY_FRACTION;           // Duty is fraction of period
   four_khz_out_params.dutyValue    = PWM_DUTY_FRACTION_MAX / 2;   // 50% duty cycle
   four_khz_out_handle = PWM_open(CONFIG_PWM_4KHZ, &four_khz_out_params);
-  if (four_khz_out_handle == NULL) {
-          /* CONFIG_PWM_4KHZ did not open */
-          while (1);
-      }
+  if (four_khz_out_handle == NULL)
+    printf("CONFIG_PWM_4KHZ did not open\\n");
 
   I2C_Params_init(&i2cParams);
   i2cParams.bitRate = I2C_100kHz;
@@ -1361,16 +1390,15 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ADC_Params_init(&ADCparams);
   ADCparams.isProtected = true;
   adc = ADC_open(CO_OUT, &ADCparams);
-  ADC_Handle adc = ADC_open(CO_OUT, &ADCparams);
 
   SAEMS_Sensors_Initialization();
 
   // Set up the io expander
-  MCP23017 mcp = MCP23017(i2c, 0b0100001);
+  mcp = MCP23017(i2c, 0b0100001);
   mcp.init();
 
 #if SAEMS_HARDWARE_VERSION == 0
-  StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_B, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_R);
+  led = StaticLED(mcp, MCP_PinMap::I_LED_B, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_R);
 #elif SAEMS_HARDWARE_VERSION == 1
   StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_R, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_B);
 #endif
