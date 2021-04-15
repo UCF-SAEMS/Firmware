@@ -110,6 +110,7 @@
 
 #include <ti/drivers/apps/Button.h>
 #include <ti/drivers/apps/LED.h>
+#include <ti/drivers/PWM.h>
 
 // *********************** SAEMS-Specific Includes ***********************
 #include "zcl_ms.h"               // Sensor Clusters
@@ -1334,6 +1335,26 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ADC_init();
   GPIO_init();
 
+  //=================================================================================
+  PWM_init();
+
+  PWM_Handle four_khz_out_handle;
+  PWM_Params four_khz_out_params;
+
+  PWM_Params_init(&four_khz_out_params);
+  four_khz_out_params.periodUnits  = PWM_PERIOD_HZ;               // Period is in Hz
+  four_khz_out_params.periodValue  = 4000;                        // 4kHz
+  four_khz_out_params.dutyUnits    = PWM_DUTY_FRACTION;           // Duty is fraction of period
+  four_khz_out_params.dutyValue    = PWM_DUTY_FRACTION_MAX / 2;   // 50% duty cycle
+
+  four_khz_out_handle = PWM_open(CONFIG_PWM_4KHZ, &four_khz_out_params);
+  if (four_khz_out_handle == NULL) {
+          /* CONFIG_PWM_4KHZ did not open */
+          while (1);
+      }
+  PWM_start(four_khz_out_handle);
+  //=================================================================================
+  Display_Handle display;
   /* Open the display for output */
   display = Display_open(Display_Type_UART, NULL);
   if (display == NULL)
