@@ -15,6 +15,8 @@ extern "C" {
 
 extern MCP23017 *mcpptr;
 
+extern Semaphore_Handle semSPIHandle;
+extern bool hardwareReady;
 
 #define SAEMS_HARDWARE_VERSION 0
 enum MCP_PinMap {

@@ -170,7 +170,7 @@ extern "C" {
 /*********************************************************************
  * GLOBAL VARIABLES
  */
-
+bool hardwareReady = false; // Changes to true once the i2c and serial interfaces are ready
 
 /*********************************************************************
  * GLOBAL FUNCTIONS
@@ -536,68 +536,6 @@ DMMPolicy_StackRole DMMPolicy_StackRole_Zigbee =
 #include <xdc/runtime/System.h>
 
      MCP23017 *mcpptr;
-#include "lib/W5500/w5500_init.h"
-#include "lib/W5500/ioLibrary_Driver-master/Ethernet/W5500/w5500.h"
-#include "lib/W5500/ioLibrary_Driver-master/Internet/DHCP/dhcp.h"
-#include "lib/W5500/ioLibrary_Driver-master/Internet/DNS/dns.h"
-#include "lib/W5500/ioLibrary_Driver-master/Internet/httpServer/httpServer.h"
-#include "lib/W5500/ioLibrary_Driver-master/Internet/httpServer/httpParser.h"
-#include "lib/W5500/ioLibrary_Driver-master/Internet/httpServer/httpUtil.h"
-#include "Web/webassets.h"
-
-volatile bool ip_assigned = false;
-#define DHCP_SOCKET     0
-#define DNS_SOCKET      1
-#define HTTP_SOCKET     2
-
-uint8_t g_send_buf[2048] = { 0 };
-uint8_t g_recv_buf[2048] = { 0 };
-char data[255] = { 0 };
-uint8_t predefined_get_cgi_processor(uint8_t *uri_name, uint8_t *buf, uint16_t *len)
-{
-  return 0;
-}
-
-uint8_t predefined_set_cgi_processor(uint8_t *uri_name, uint8_t *uri, uint8_t *buf, uint16_t *len)
-{
-  return 0;
-}
-
-uint32_t get1sTick(void)
-{
-  return ((Clock_getTicks() * Clock_tickPeriod) / (1000 * 1000));
-}
-
-void Callback_IPAssigned(void)
-{
-  System_printf("Callback: IP assigned! Leased time: %d sec\r\n", getDHCPLeasetime());
-  System_flush();
-  ip_assigned = true;
-}
-
-void Callback_IPConflict(void)
-{
-  System_printf("Callback: IP conflict!\r\n");
-  System_flush();
-}
-
-void getHardwareMac(uint8_t *macAddress)
-{
-  if (!macAddress)
-    return;
-
-  uint64_t const eui64Address = (*((volatile uint64_t*) (FCFG1_BASE + FCFG1_O_MAC_15_4_0)));
-
-  // Per TI, the first 2 bytes are unique (although it looks like 3 are, see OUI. For CC1352 it's 4b:12:00)
-  // This means that 64b-16b = 48b, exactly what we need for an unregistered (fully random) eui48/mac address per device
-  // As the high bytes are constant going to need to copy the 6 byte address out backwards, index 0 will always be constant (4b in this case).
-  // https://e2e.ti.com/support/wireless-connectivity/sub-1-ghz/f/156/t/586103?RTOS-LAUNCHXL-CC1310-Obtaining-a-48-bit-unique-ID-for-each-device
-  for (int i = 0; i <= 5; i++)
-    macAddress[5 - i] = (((uint8_t*) &eui64Address))[i];
-
-  // Ensure address is unicast, and an OUI respectfully. (Clear 2 LSBs)
-  macAddress[0] &= ~((1 << 0) | (1 << 1));
-}
 
 void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 {
@@ -676,173 +614,22 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   // Set up the io expander
   MCP23017 mcp = MCP23017(i2c, 0b0100001);
   mcp.init();
-
   mcpptr = &mcp;
-//#if SAEMS_HARDWARE_VERSION == 0
-//  StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_B, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_R);
-//#elif SAEMS_HARDWARE_VERSION == 1
-//  StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_R, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_B);
-//#endif
-//
-//  led.set(RGB_States::RED | RGB_States::GREEN);
-//
-//  LEDBoard ledboard = LEDBoard(CONFIG_SPI_LEDBOARD);
-//  ledboard.init();
 
-  mcp.pinMode(MCP_PinMap::ETH_RST, OUTPUT);
+#if SAEMS_HARDWARE_VERSION == 0
+  StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_B, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_R);
+#elif SAEMS_HARDWARE_VERSION == 1
+  StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_R, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_B);
+#endif
 
-  wizchip_select();
-  Task_sleep(100 * (1000 / Clock_tickPeriod));
-  wizchip_deselect();
-  Task_sleep(100 * (1000 / Clock_tickPeriod));
+  led.set(RGB_States::NONE);
 
-
-  /* W5500 Chip Reset */
-  mcp.digitalWrite(MCP_PinMap::ETH_RST, false);
-//  delay_cnt(5000);.
-  Task_sleep(50 * (1000 / Clock_tickPeriod));
-  mcp.digitalWrite(MCP_PinMap::ETH_RST, true);
-//  delay_cnt(10000);
-  Task_sleep(100 * (1000 / Clock_tickPeriod));
-
-  System_flush();
-  W5500_Init();
-
-  System_flush();
-
-  // Give time for network to establish and handle ip negotiation
-  Task_sleep(5000 * (1000 / Clock_tickPeriod));
-
-  // 1K should be enough, see https://forum.wiznet.io/t/topic/1612/2
-  uint8_t dhcp_buffer[1024];
-  // 1K seems to be enough for this buffer as well
-  uint8_t dns_buffer[1024];
-
-  // This is a mock web server handler.
-  char requestedURL[] = "index.html";
-
-  web_FileAssetItem_Type match = ASSET_ERROR;
-  for (int i = 0; i < NWEBASSETS; i++)
-  {
-    if (strncmp(requestedURL, webAssets[i].name, 20) == 0)
-    {
-      // This was a match
-      match = (web_FileAssetItem_Type) i;
-    }
-  }
-
-  if (match != ASSET_ERROR)
-  {
-    // We need to send this file
-    web_FileAssetItem_t *item = &webAssets[match];
-
-    System_printf("Sending: <%s> \r\n", item->name);
-
-    // can not guarentee that there is going to be a \0 at the end of the data string
-    // so a memcpy or similar should be used. TODO DMA transfer to W5500
-    for (int i = 0; i < item->size; i++)
-    {
-      System_printf("%c", item->data[i]);
-    }
-    System_printf("\r\n------------- \r\n");
-  }
-  System_flush();
-
-  System_printf("Calling DHCP_init()...\r\n");
-  System_flush();
-  wiz_NetInfo net_info = { .dhcp = NETINFO_DHCP };
-  // use unique hardware mac address embedded in the micro
-  getHardwareMac(net_info.mac);
-  // set MAC address before using DHCP
-  setSHAR(net_info.mac);
-  DHCP_init(DHCP_SOCKET, dhcp_buffer);
-
-  System_printf("Registering DHCP callbacks...\r\n");
-  System_flush();
-  reg_dhcp_cbfunc(Callback_IPAssigned, Callback_IPAssigned, Callback_IPConflict);
-
-  System_printf("Calling DHCP_run()...\r\n");
-  System_flush();
-  // actually should be called in a loop, e.g. by timer
-  uint32_t ctr = 10000;
-  while ((!ip_assigned) && (ctr > 0))
-  {
-    DHCP_run();
-    ctr--;
-  }
-  if (!ip_assigned)
-  {
-    System_printf("\r\nIP was not assigned :(\r\n");
-    System_flush();
-    return;
-  }
-
-  getIPfromDHCP(net_info.ip);
-  getGWfromDHCP(net_info.gw);
-  getSNfromDHCP(net_info.sn);
-  getDNSfromDHCP(net_info.dns);
-
-  System_printf("IP:  %d.%d.%d.%d\r\nGW:  %d.%d.%d.%d\r\nNet: %d.%d.%d.%d\r\nDNS: %d.%d.%d.%d\r\n",
-      net_info.ip[0], net_info.ip[1], net_info.ip[2], net_info.ip[3],
-      net_info.gw[0], net_info.gw[1], net_info.gw[2], net_info.gw[3],
-      net_info.sn[0], net_info.sn[1], net_info.sn[2], net_info.sn[3],
-      net_info.dns[0], net_info.dns[1], net_info.dns[2], net_info.dns[3]
-  );
-  System_flush();
-
-
-  System_printf("Calling wizchip_setnetinfo()...\r\n");
-  System_flush();
-  wizchip_setnetinfo(&net_info);
-
-  System_printf("Calling DNS_init()...\r\n");
-  System_flush();
-  DNS_init(DNS_SOCKET, dns_buffer);
-
-  uint8_t addr[4];
-  {
-    char domain_name[] = "eax.me";
-    System_printf("Resolving domain name \"%s\"...\r\n", domain_name);
-    System_flush();
-    int8_t res = DNS_run(net_info.dns, (uint8_t*) &domain_name, addr);
-    if (res != 1)
-    {
-      System_printf("DNS_run() failed, res = %d", res);
-      System_flush();
-      return;
-    }
-    System_printf("Result: %d.%d.%d.%d\r\n", addr[0], addr[1], addr[2], addr[3]);
-    System_flush();
-  }
-
-  System_flush();
-  Task_sleep(1000 * (1000 / Clock_tickPeriod));
-
-  uint8_t sockets[] = { 4 };
-  g_send_buf[2047] = 1;
-  g_recv_buf[2047] = 2;
-
-  httpServer_init(g_send_buf, g_recv_buf, sizeof(sockets), sockets);
-  reg_httpServer_cbfunc(NULL, NULL, get1sTick);
-
-  reg_httpServer_webContent((uint8_t*) "index.html", (uint8_t*) "<html><body>hi</body></html>");
-  for (;;)
-  {
-    httpServer_run(0);
-
-    Task_sleep(100 * (1000 / Clock_tickPeriod));
-    System_printf("-");
-    System_flush();
-  }
-
+  hardwareReady = true;
 
   for (;;)
   {
-//    for (float br = 0; br < 360; br += .5)
-//    {
-//      ledboard.hsi(br, 1, 0.8);
-//      Task_sleep(50 * (1000 / Clock_tickPeriod));
-//    }
+    led.toggle(RGB_States::BLUE);
+    Task_sleep(1000 * (1000 / Clock_tickPeriod));
   }
 
   // No return from task process
