@@ -683,14 +683,14 @@ int32_t adpd188_smoke_detect_setup(struct adpd188_dev *dev)
     ret = adpd188_reg_write(dev, ADPD188_REG_SLOTB_AFE_CFG, 0xADA5);
     ret = adpd188_reg_write(dev, ADPD188_REG_SLOTB_TIA_CFG, 0x1C34);
 
-    ret = adpd188_reg_read(dev, ADPD188_REG_SLOT_EN, &reg_data);
-    if(ret != SUCCESS)
-        return FAILURE;
+//    ret = adpd188_reg_read(dev, ADPD188_REG_SLOT_EN, &reg_data);
+//    if(ret != SUCCESS)
+//        return FAILURE;
+//
+//    reg_data |= ADPD188_SLOT_EN_RDOUT_MODE_MASK |
+//            ADPD188_SLOT_EN_FIFO_OVRN_PREVENT_MASK;
 
-    reg_data |= ADPD188_SLOT_EN_RDOUT_MODE_MASK |
-            ADPD188_SLOT_EN_FIFO_OVRN_PREVENT_MASK;
-
-    ret = adpd188_reg_write(dev, ADPD188_REG_SLOT_EN, reg_data);
+    ret = adpd188_reg_write(dev, ADPD188_REG_SLOT_EN, 0x3065);
 
     if(ret != SUCCESS)
         return FAILURE;

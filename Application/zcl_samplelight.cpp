@@ -592,50 +592,73 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 
   adpd188_mode_set(adpd_dev, ADPD188_NORMAL);
 
-for(;;)
-{
-  uint16_t samples;
-  uint16_t rxreg;
-  uint16_t fifonumrx;
+    for (;;)
+    {
+        uint16_t samples;
+        uint16_t rxreg;
+        uint16_t fifonumrx;
+        float LEDA;
+        float LEDB;
+        double Result;
 
-  adpd188_reg_read(adpd_dev, ADPD188_REG_STATUS, &rxreg);
+        adpd188_reg_read(adpd_dev, ADPD188_REG_STATUS, &rxreg);
 
-  printf("Status: %02x \n\r", rxreg);
+        printf("Status: 0x%02x \n\r", rxreg);
 
-  fifonumrx = rxreg >> 8;
+        rxreg = rxreg & 0xFF00;
 
-  printf("fifo read number: %02x, %d \n\r", fifonumrx, fifonumrx);
+        fifonumrx = rxreg >> 8;
 
-  while(fifonumrx >= 4){
+        adpd188_reg_read(adpd_dev, ADPD188_REG_SLOTA_PD1_16BIT, &samples);
 
-      adpd188_reg_read(adpd_dev, 0x64, &samples);
+        LEDA = samples;
 
-      printf("CH1 Slot A out: %04x \n\r", samples);
+        printf("CH1 Slot A Blue LED: 0x%04x \n\r", samples);
 
-      adpd188_reg_read(adpd_dev, 0x68, &samples);
+        adpd188_reg_read(adpd_dev, ADPD188_REG_SLOTB_PD1_16BIT, &samples);
 
-      printf("CH1 Slot B out: %04x \n\r", samples);
+        LEDB = samples;
 
-      adpd188_reg_read(adpd_dev, 0x60, &samples);
+        printf("CH1 Slot B IR LED: 0x%04x \n\r", samples);
 
-      printf("fifo out: %04x, ", samples);
+        Result = double(LEDA / LEDB);
 
-      adpd188_reg_read(adpd_dev, 0x60, &samples);
-
-      printf("%04x\n\r", samples);
-
-      fifonumrx = fifonumrx - 4;
-
-      printf("fifo read number: %02x, %d \n\r", fifonumrx, fifonumrx);
-
-  }
-
-  adpd188_reg_read(adpd_dev, ADPD188_REG_DEVID, &rxreg);
-
-  printf("ID %04x \n\n------------------------------------------------------\n\r", rxreg);
+        printf("Amplitude: %f \n\r", Result);
 
 
-}
+//        while (fifonumrx != 28)
+//        {
+//            adpd188_reg_read(adpd_dev, ADPD188_REG_STATUS, &rxreg);
+//
+//            rxreg = rxreg & 0xFF00;
+//
+//            fifonumrx = rxreg >> 8;
+//        }
+
+
+//        while (fifonumrx > 0)
+//        {
+//
+//            adpd188_reg_read(adpd_dev, ADPD188_REG_SLOTA_PD1_16BIT, &samples);
+//
+//            printf("CH1 Slot A Blue LED: 0x%04x \n\r", samples);
+//
+//            adpd188_reg_read(adpd_dev, ADPD188_REG_SLOTB_PD1_16BIT, &samples);
+//
+//            printf("CH1 Slot B IR LED: 0x%04x \n\r", samples);
+//
+//            printf("fifo read number bytes: 0x%02x, %d \n\r", fifonumrx, fifonumrx);
+//
+//            fifonumrx -= 4;
+//
+//    }
+
+        adpd188_reg_read(adpd_dev, ADPD188_REG_DEVID, &rxreg);
+
+        printf("ID %04x \n\n------------------------------------------------------\n\r",
+               rxreg);
+
+    }
 
   struct bme280_data bme_data;
   struct bme280_dev bme_dev;
