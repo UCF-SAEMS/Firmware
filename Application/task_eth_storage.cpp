@@ -686,7 +686,7 @@ void ethstore_task(NVINTF_nvFuncts_t *pfnNV)
 
       // can not guarentee that there is going to be a \0 at the end of the data string
       // so a memcpy or similar should be used. TODO DMA transfer to W5500
-      for (int i = 0; i < item->size; i++)
+      for (int i = 0; i < (item->endaddr- (const size_t) item->data); i++)
       {
         System_printf("%c", item->data[i]);
       }

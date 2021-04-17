@@ -9,6 +9,8 @@
 #include "httpParser.h"
 #include "httpUtil.h"
 
+#include "Web/webassets.h"
+
 #ifdef	_USE_SDCARD_
 #include "ff.h" 	// header file for FatFs library (FAT file system)
 #endif
@@ -712,19 +714,19 @@ uint8_t display_reg_webContent_list(void)
 
 uint8_t find_userReg_webContent(uint8_t * content_name, uint16_t * content_num, uint32_t * file_len)
 {
-	uint16_t i;
 	uint8_t ret = 0; // '0' means 'File Not Found'
 
-	for(i = 0; i < total_content_cnt; i++)
-	{
-		if(!strcmp((char *)content_name, (char *)web_content[i].content_name))
-		{
-			*file_len = web_content[i].content_len;
-			*content_num = i;
-			ret = 1; // If the requested content found, ret set to '1' (Found)
-			break;
-		}
-	}
+    for (int i = 0; i < NWEBASSETS; i++)
+    {
+      if (strncmp((char *)content_name, webAssets[i].name, 32) == 0)
+      {
+        // This was a match
+        *file_len = (webAssets[i].endaddr - (size_t) webAssets[i].data);
+        *content_num = i;
+        ret = 1; // If the requested content found, ret set to '1' (Found)
+      }
+    }
+
 	return ret;
 }
 
@@ -732,11 +734,11 @@ uint8_t find_userReg_webContent(uint8_t * content_name, uint16_t * content_num, 
 uint16_t read_userReg_webContent(uint16_t content_num, uint8_t * buf, uint32_t offset, uint16_t size)
 {
 	uint16_t ret = 0;
-	uint8_t * ptr;
+	const char * ptr;
 
 	if(content_num > total_content_cnt) return 0;
 
-	ptr = web_content[content_num].content;
+	ptr = webAssets[content_num].data;
 	if(offset) ptr += offset;
 
 	strncpy((char *)buf, (char *)ptr, size);

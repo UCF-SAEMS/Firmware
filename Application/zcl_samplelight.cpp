@@ -1885,8 +1885,8 @@ size_t formatJSONString(char * buf, size_t len)
              "\"pm1number\" :  %.2f, \r\n"
              "\"pm2number\" :  %.2f, \r\n"
              "\"pm4number\" :  %.2f, \r\n"
-             "\"pm10number\"  %.2f, \r\n"
-             "\"typicalparticlesize\" :  %.2f, \r\n"
+             "\"pm10number\" :  %.2f, \r\n"
+             "\"typicalparticlesize\" :  %.2f \r\n"
              "}",
 
              0.1f * sensorDataCurrent.temperature,

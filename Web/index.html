@@ -1,9 +1,751 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Example</title>
-    </head>
-    <body>
-        <p>This is being served directly from the SAEMS device!</p>
-    </body>
+
+<!DOCTYPE HTML><html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+
+  <!-- Used for testing -->
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/chartist.js/latest/chartist.min.css">
+  <script src="//cdn.jsdelivr.net/chartist.js/latest/chartist.min.js"></script>
+
+  <!-- Used if files hosted on board (may need more up to date version)-->
+  <!-- <link href="chartist/chartist.min.css"> -->
+
+  <style>
+    html, body
+    {
+        height: 100%;
+        min-height: 100%;
+        font-family: Verdana, sans-serif;
+
+    }
+
+    .graph-class {
+      margin-top: 69px;
+      margin-right:400px;
+    }
+    /* Classes split html into header and 9 tiles */
+    .class0 {
+      overflow: hidden;
+      background-color: #333;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      color: #f2f2f2;
+      z-index: 1; /* Stay on top */
+    }
+    .class1,
+    .class2,
+    .class3 {
+      border-radius: 25px;
+      background: #DDDDDD;
+      padding: 0px;
+      width: 32.5%;
+      float: left;
+      height: 400px;
+      margin-top: 3px;
+      margin-bottom: 3px;
+      margin-right: 3px;
+      margin-left: 3px;
+    }
+    .class4,
+    .class5,
+    .class6 {
+      border-radius: 25px;
+      background: #DDDDDD;
+      padding: 0px;
+      width: 32.5%;
+      float: left;
+      height: 400px;
+      margin-top: 3px;
+      margin-bottom: 3px;
+      margin-right: 3px;
+      margin-left: 3px;
+    }
+    .class7,
+    .class8,
+    .class9 {
+      border-radius: 25px;
+      background: #DDDDDD;
+      padding: 0px;
+      width: 32.5%;
+      float: left;
+      height: 400px;
+      margin-top: 3px;
+      margin-bottom: 3px;
+      margin-right: 3px;
+      margin-left: 3px;
+    }
+
+    table {
+        width: 100%;
+    }
+
+    th {
+      height: 5%;
+    }
+
+    tr:nth-child(even) {background: #ffffff}
+    tr:nth-child(odd) {background: #ededed}
+
+    th, td {
+      padding: 15px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+
+    body {background-color: #f7f7f7;}
+
+    /* The sidebar menu */
+    .sidenav {
+      margin-top: 69.83px;
+      height: 100%;
+      width: 400px; /* Set the width of the sidebar */
+      position: fixed; /* Fixed Sidebar (stay in place on scroll) */
+      z-index: 1; /* Stay on top */
+      top: 0; /* Stay at the top */
+      right: 0;
+      background-color: #DDDDDD; /* Black */
+      overflow-x: hidden; /* Disable horizontal scroll */
+      padding-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Used if files hosted on board -->
+  <!-- <script src="chartist/chartist.min.js"></script> -->
+
+  <div class = "class0">
+    <h2 >Smart Alert Environment Management System</h2>
+  </div>
+
+  <!-- Sidebar Table -->
+  <div class = "sidenav">
+    <table class="pure-table pure-table-horizontal">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Value</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Temperature</td>
+                <td id = "temperature_table"></td>
+                <td id = "temperature_status"></td>
+            </tr>
+            <tr>
+                <td>Humidity</td>
+                <td id = "humidity_table"></td>
+                <td id = "humidity_status"></td>
+            </tr>
+            <tr>
+                <td>Pressure</td>
+                <td id = "pressure_table"></td>
+                <td id = "pressure_status"></td>
+            </tr>
+            <tr>
+                <td>VOC</td>
+                <td id = "voc_table"></td>
+                <td id = "voc_status"></td>
+            </tr>
+            <tr>
+                <td>Smoke</td>
+                <td id = "smoke_table"></td>
+                <td id = "smoke_status"></td>
+            </tr>
+            <tr>
+                <td>Motion</td>
+                <td id = "motion_table"></td>
+                <td id = "motion_status"></td>
+            </tr>
+            <tr>
+                <td>Carbon Monoxide</td>
+                <td id = "co_table"></td>
+                <td id = "co_status"></td>
+            </tr>
+            <tr>
+                <td>Carbon Dioxide</td>
+                <td id = "co2_table"></td>
+                <td id = "co2_status"></td>
+            </tr>
+            <tr>
+                <td>Mass Concentration PM1.0</td>
+                <td id = "pm1mass"></td>
+                <td id = "pm1mass_status"></td>
+            </tr>
+            <tr>
+                <td>Mass Concentration PM2.5</td>
+                <td id = "pm2mass"></td>
+                <td id = "pm2mass_status"></td>
+            </tr>
+            <tr>
+                <td>Mass Concentration PM4.0</td>
+                <td id = "pm4mass"></td>
+                <td id = "pm4mass_status"></td>
+            </tr>
+            <tr>
+                <td>Mass Concentration PM10</td>
+                <td id = "pm10mass"></td>
+                <td id = "pm10mass_status"></td>
+            </tr>
+            <tr>
+                <td>Number Concentration PM0.5</td>
+                <td id = "pm0number"></td>
+                <td id = "pm0number_status"></td>
+            </tr>
+            <tr>
+                <td>Number Concentration PM1.0</td>
+                <td id = "pm1number"></td>
+                <td id = "pm1number_status"></td>
+            </tr>
+            <tr>
+                <td>Number Concentration PM2.5</td>
+                <td id = "pm2number"></td>
+                <td id = "pm2number_status"></td>
+            </tr>
+            <tr>
+                <td>Number Concentration PM4.0</td>
+                <td id = "pm4number"></td>
+                <td id = "pm4number_status"></td>
+            </tr>
+            <tr>
+                <td>Number Concentration PM10</td>
+                <td id = "pm10number"></td>
+                <td id = "pm10number_status"></td>
+            </tr>
+            <tr>
+                <td>Typical Particle Size</td>
+                <td id = "typicalparticlesize"></td>
+                <td id = "typicalparticlesize_status"></td>
+            </tr>
+        </tbody>
+    </table>
+  </div>
+
+<div class = "graph-class">
+  <div class = "class1">
+    <p>
+      <!-- <i class="fas fa-thermometer-half" style="color:#059e8a;"></i> -->
+      <span class="dht-labels">Temperature: </span>
+      <span id="temperature">%TEMPERATURE%</span>
+      <sup class="units">&deg;C</sup>
+    </p>
+    <p id = "temperature_arr"></p>
+    <div class="ct-chart ct-perfect-fourth" id="temperature_chart"></div>
+  </div>
+
+  <div class = "class2">
+    <p>
+      <!--<i class="fas fa-tint" style="color:#00add6;"></i> -->
+      <span class="dht-labels">Humidity: </span>
+      <span id="humidity">%HUMIDITY%</span>
+      <sup class="units">%</sup>
+    </p>
+    <p id = "humidity_arr"></p>
+    <div class="ct-chart ct-perfect-fourth" id="humidity_chart"></div>
+  </div>
+
+  <div class = "class3">
+    <p>
+      <!-- <i class="fas fa-tint" style="color:#00add6;"></i> -->
+      <span class="dht-labels" style="color:#d70206;">PM1.0 Mass: </span>
+      <span id="pm1mass_val">%PM1MASS%</span>
+      <sup class="units">&micro;g/m<sup>3</sup></sup>
+      <span class="dht-labels" style="color:#f05b4f;">PM2.5 Mass: </span>
+      <span id="pm2mass_val">%PM2MASS%</span>
+      <sup class="units">&micro;g/m<sup>3</sup></sup>
+      <span><br></span>
+      <span class="dht-labels" style="color:#f4c63d;">PM4.0 Mass: </span>
+      <span id="pm4mass_val">%PM4MASS%</span>
+      <sup class="units">&micro;g/m<sup>3</sup></sup>
+      <span class="dht-labels" style="color:#d17905;">PM10.0 Mass: </span>
+      <span id="pm10mass_val">%PM10MASS%</span>
+      <sup class="units">&micro;g/m<sup>3</sup></sup>
+    </p>
+    <p id = "particulates_arr"></p>
+    <div class="ct-chart ct-perfect-fourth" id="particulates_chart"></div>
+  </div>
+
+  <div class = "class4">
+    <p>
+      <!--<i class="fas fa-tint" style="color:#00add6;"></i> -->
+      <span class="dht-labels">Volatile Organic Compounds: </span>
+      <span id="voc">%VOC%</span>
+      <sup class="units">ppb</sup>
+    </p>
+    <p id = "voc_arr"></p>
+    <div class="ct-chart ct-perfect-fourth" id="voc_chart"></div>
+  </div>
+
+  <div class = "class5">
+    <p>
+      <!-- <i class="fas fa-tint" style="color:#00add6;"></i> -->
+      <span class="dht-labels">Occupancy: </span>
+      <span id="occupancy">%OCCUPANCY%</span>
+      <sup class="units"></sup>
+    </p>
+    <p id = "occupancy_arr"></p>
+    <div class="ct-chart ct-perfect-fourth" id="occupancy_chart"></div>
+  </div>
+
+  <div class = "class6">
+    <p>
+      <!-- <i class="fas fa-tint" style="color:#00add6;"></i> -->
+      <span class="dht-labels">Carbon Dioxide: </span>
+      <span id="carbondioxide">%CARBONDIOXIDE%</span>
+      <sup class="units">ppm</sup>
+    </p>
+    <p id = "carbondioxide_arr"></p>
+    <div class="ct-chart ct-perfect-fourth" id="carbondioxide_chart"></div>
+  </div>
+
+  <div class = "class7">
+    <p>
+      <!-- <i class="fas fa-tint" style="color:#00add6;"></i> -->
+      <span class="dht-labels">Carbon Monoxide: </span>
+      <span id="carbonmonoxide">%CARBONMONOXIDE%</span>
+      <sup class="units">ppm</sup>
+    </p>
+    <p id = "carbonmonoxide_arr"></p>
+    <div class="ct-chart ct-perfect-fourth" id="carbonmonoxide_chart"></div>
+  </div>
+
+  <div class = "class8">
+    <p>
+      <!-- <i class="fas fa-tint" style="color:#00add6;"></i> -->
+      <span class="dht-labels">Smoke: </span>
+      <span id="smoke">%SMOKE%</span>
+      <sup class="units">mg/kg</sup>
+    </p>
+    <p id = "smoke_arr"></p>
+    <div class="ct-chart ct-perfect-fourth" id="smoke_chart"></div>
+  </div>
+
+  <div class = "class9">
+    <p>
+      <!-- <i class="fas fa-tint" style="color:#00add6;"></i> -->
+      <span class="dht-labels">Pressure: </span>
+      <span id="pressure">%PRESSURE%</span>
+      <sup class="units">hPa</sup>
+    </p>
+    <p id = "pressure_arr"></p>
+    <div class="ct-chart ct-perfect-fourth" id="pressure_chart"></div>
+  </div>
+
+  <div class = "class1">
+    <p>
+      <!-- <i class="fas fa-tint" style="color:#00add6;"></i> -->
+      <span class="dht-labels" style="color:#d70206;" font-size="x-small">PM1.0 Num.: </span>
+      <span id="pm1number_val" font-size="x-small">%PM1NUMBER%</span>
+      <sup class="units" font-size="x-small">#/cm<sup>3</sup></sup>
+      <span class="dht-labels" style="color:#f05b4f;" font-size="x-small">PM2.5 Num.: </span>
+      <span id="pm2number_val" font-size="x-small">%PM2NUMBER%</span>
+      <sup class="units" font-size="x-small">#/cm<sup>3</sup></sup>
+      <span><br></span>
+      <span class="dht-labels" style="color:#f4c63d;" font-size="x-small">PM4.0 Num.: </span>
+      <span id="pm4number_val" font-size="x-small">%PM4NUMBER%</span>
+      <sup class="units" font-size="x-small">#/cm<sup>3</sup></sup>
+      <span class="dht-labels" style="color:#d17905;" font-size="x-small">PM10.0 Num.: </span>
+      <span id="pm10number_val" font-size="x-small">%PM10NUMBER%</span>
+      <sup class="units" font-size="x-small">#/cm<sup>3</sup></sup>
+    </p>
+    <div class="ct-chart ct-perfect-fourth" id="particulates_number_chart"></div>
+  </div>
+
+  <div class = "class2">
+    <p>
+      <!-- <i class="fas fa-tint" style="color:#00add6;"></i> -->
+      <span class="dht-labels">Typical Particle Size: </span>
+      <span id="typicalparticlesize_val">%TYPICALPARTICLESIZE%</span>
+      <sup class="units">nm</sup>
+    </p>
+    <div class="ct-chart ct-perfect-fourth" id="typicalparticlesize_chart"></div>
+  </div>
+
+</div>
+
+</body>
+<script>
+
+var DEBUG = false;
+
+// Initilize sensor arrays
+var temperature_arr = [0, 0, 0, 0, 0, 0, 0];
+var humidity_arr = [0, 0, 0, 0, 0, 0, 0];
+var particulates_arr = [0, 0, 0, 0, 0, 0, 0];
+var pm1mass_arr = [0, 0, 0, 0, 0, 0, 0];
+var pm2mass_arr = [0, 0, 0, 0, 0, 0, 0];
+var pm4mass_arr = [0, 0, 0, 0, 0, 0, 0];
+var pm10mass_arr = [0, 0, 0, 0, 0, 0, 0];
+var pm1number_arr = [0, 0, 0, 0, 0, 0, 0];
+var pm2number_arr = [0, 0, 0, 0, 0, 0, 0];
+var pm4number_arr = [0, 0, 0, 0, 0, 0, 0];
+var pm10number_arr = [0, 0, 0, 0, 0, 0, 0];
+var typicalparticlesize_arr = [0, 0, 0, 0, 0, 0, 0];
+var voc_arr = [0, 0, 0, 0, 0, 0, 0];
+var occupancy_arr = [0, 0, 0, 0, 0, 0, 0];
+var carbondioxide_arr = [0, 0, 0, 0, 0, 0, 0];
+var carbonmonoxide_arr = [0, 0, 0, 0, 0, 0, 0];
+var smoke_arr = [0, 0, 0, 0, 0, 0, 0];
+var pressure_arr = [0, 0, 0, 0, 0, 0, 0];
+
+// Initialize time array
+var time_arr = [0, 0, 0, 0, 0, 0, 0];
+
+// Initialize Chartist line graph
+var initial_data = {
+  labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+  series: [
+    temperature_arr
+  ]
+};
+
+// Populate charts with initial data
+new Chartist.Line('#temperature_chart', initial_data);
+new Chartist.Line('#humidity_chart', initial_data);
+new Chartist.Line('#particulates_chart', initial_data);
+new Chartist.Line('#voc_chart', initial_data);
+new Chartist.Line('#occupancy_chart', initial_data);
+new Chartist.Line('#carbondioxide_chart', initial_data);
+new Chartist.Line('#carbonmonoxide_chart', initial_data);
+new Chartist.Line('#smoke_chart', initial_data);
+new Chartist.Line('#pressure_chart', initial_data);
+new Chartist.Line('#particulates_number_chart', initial_data);
+new Chartist.Line('#typicalparticlesize_chart', initial_data);
+
+function findTime() {
+  return new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12:false });
+}
+
+// Shifts values in array to left and place new value at the end of array
+function updateArray(newvalue, array){
+  for (i = 0; i < array.length; i++) {
+    if (i == array.length - 1){
+      array[i] = newvalue;
+    }
+    else {
+      array[i] = array[i + 1];
+    }
+  }
+  return array;
+}
+
+// Updates individual displays
+function updateIndividualDisplays(data){
+  // Update individual displays
+  if (data.occupancy == 0) {
+    document.getElementById("occupancy").innerHTML = "Unoccupied";
+  } else {
+    document.getElementById("occupancy").innerHTML = "Occcupied";
+  }
+  document.getElementById("temperature").innerHTML = data.temperature;
+  document.getElementById("humidity").innerHTML = data.humidity;
+  document.getElementById("voc").innerHTML = data.voc;
+  document.getElementById("carbondioxide").innerHTML = data.carbondioxide;
+  document.getElementById("carbonmonoxide").innerHTML = data.carbonmonoxide;
+  document.getElementById("smoke").innerHTML = data.smoke;
+  document.getElementById("pressure").innerHTML = data.pressure;
+  document.getElementById("pm1mass_val").innerHTML = data.pm1mass;
+  document.getElementById("pm2mass_val").innerHTML = data.pm2mass;
+  document.getElementById("pm4mass_val").innerHTML = data.pm4mass;
+  document.getElementById("pm10mass_val").innerHTML = data.pm10mass
+  document.getElementById("pm1number_val").innerHTML = data.pm1number;
+  document.getElementById("pm2number_val").innerHTML = data.pm2number;
+  document.getElementById("pm4number_val").innerHTML = data.pm4number;
+  document.getElementById("pm10number_val").innerHTML = data.pm10number;
+  document.getElementById("typicalparticlesize_val").innerHTML = data.typicalparticlesize;
+}
+
+function updateTable(data){
+  // Table
+  document.getElementById("temperature_table").innerHTML = data.temperature;
+  document.getElementById("humidity_table").innerHTML = data.humidity;
+  document.getElementById("voc_table").innerHTML = data.voc;
+  document.getElementById("co2_table").innerHTML = data.carbondioxide;
+  document.getElementById("co_table").innerHTML = data.carbonmonoxide;
+  document.getElementById("smoke_table").innerHTML = data.smoke;
+  document.getElementById("pressure_table").innerHTML = data.pressure;
+  if (data.occupancy == 0) {
+    document.getElementById("motion_table").innerHTML = "Unoccupied";
+  } else {
+    document.getElementById("motion_table").innerHTML = "Occcupied";
+  }
+  document.getElementById("pm1mass").innerHTML = data.pm1mass;
+  document.getElementById("pm2mass").innerHTML = data.pm2mass;
+  document.getElementById("pm4mass").innerHTML = data.pm4mass;
+  document.getElementById("pm10mass").innerHTML = data.pm10mass;
+  document.getElementById("pm0number").innerHTML = data.pm0number;
+  document.getElementById("pm1number").innerHTML = data.pm1number;
+  document.getElementById("pm2number").innerHTML = data.pm2number;
+  document.getElementById("pm4number").innerHTML = data.pm4number;
+  document.getElementById("pm10number").innerHTML = data.pm10number;
+  document.getElementById("typicalparticlesize").innerHTML = data.typicalparticlesize;
+
+  // Update status
+  var temperature_threshold = 90;
+  var humidity_threshold = 90;
+  var voc_threshold = 90;
+  var co2_threshold = 90;
+  var co_threshold = 90;
+  var smoke_threshold = 90;
+  var pressure_threshold = 90;
+  var particulates_mass_threshold = 90;
+  var particulates_number_threshold = 90;
+  var typicalparticlesize_threshold = 90;
+
+  if (data.temperature > temperature_threshold) {
+    document.getElementById("temperature_status").innerHTML = "Dangerous";
+    document.getElementById("temperature_status").style.color = "#FF0000";
+  } else {
+    document.getElementById("temperature_status").innerHTML = "Normal";
+    document.getElementById("temperature_status").style.color = "#000000";
+  }
+
+  if (data.humidity > humidity_threshold) {
+    document.getElementById("humidity_status").innerHTML = "Dangerous";
+    document.getElementById("humidity_status").style.color = "#FF0000";
+  } else {
+    document.getElementById("humidity_status").innerHTML = "Normal";
+    document.getElementById("humidity_status").style.color = "#000000";
+  }
+
+  if (data.voc > voc_threshold) {
+    document.getElementById("voc_status").innerHTML = "Dangerous";
+    document.getElementById("voc_status").style.color = "#FF0000";
+  } else {
+    document.getElementById("voc_status").innerHTML = "Normal";
+    document.getElementById("voc_status").style.color = "#000000";
+  }
+
+  if (data.carbondioxide > co2_threshold) {
+    document.getElementById("co2_status").innerHTML = "Dangerous";
+    document.getElementById("co2_status").style.color = "#FF0000";
+  } else {
+    document.getElementById("co2_status").innerHTML = "Normal";
+    document.getElementById("co2_status").style.color = "#000000";
+  }
+
+  if (data.carbonmonoxide > co_threshold) {
+    document.getElementById("co_status").innerHTML = "Dangerous";
+    document.getElementById("co_status").style.color = "#FF0000";
+  } else {
+    document.getElementById("co_status").innerHTML = "Normal";
+    document.getElementById("co_status").style.color = "#000000";
+  }
+
+  if (data.smoke > smoke_threshold) {
+    document.getElementById("smoke_status").innerHTML = "Dangerous";
+    document.getElementById("smoke_status").style.color = "#FF0000";
+  } else {
+    document.getElementById("smoke_status").innerHTML = "Normal";
+    document.getElementById("smoke_status").style.color = "#000000";
+  }
+
+  if (data.pressure > pressure_threshold) {
+    document.getElementById("pressure_status").innerHTML = "Dangerous";
+    document.getElementById("pressure_status").style.color = "#FF0000";
+  } else {
+    document.getElementById("pressure_status").innerHTML = "Normal";
+    document.getElementById("pressure_status").style.color = "#000000";
+  }
+
+  document.getElementById("motion_status").innerHTML = "Normal";
+
+  if (data.pm2mass > particulates_mass_threshold) {
+    document.getElementById("pm1mass_status").innerHTML = "Dangerous";
+    document.getElementById("pm1mass_status").style.color = "#FF0000";
+
+    document.getElementById("pm2mass_status").innerHTML = "Dangerous";
+    document.getElementById("pm2mass_status").style.color = "#FF0000";
+
+    document.getElementById("pm4mass_status").innerHTML = "Dangerous";
+    document.getElementById("pm4mass_status").style.color = "#FF0000";
+
+    document.getElementById("pm10mass_status").innerHTML = "Dangerous";
+    document.getElementById("pm10mass_status").style.color = "#FF0000";
+  } else {
+    document.getElementById("pm1mass_status").innerHTML = "Normal";
+    document.getElementById("pm1mass_status").style.color = "#000000";
+
+    document.getElementById("pm2mass_status").innerHTML = "Normal";
+    document.getElementById("pm2mass_status").style.color = "#000000";
+
+    document.getElementById("pm4mass_status").innerHTML = "Normal";
+    document.getElementById("pm4mass_status").style.color = "#000000";
+
+    document.getElementById("pm10mass_status").innerHTML = "Normal";
+    document.getElementById("pm10mass_status").style.color = "#000000";
+  }
+
+  if (data.pm2number > particulates_number_threshold) {
+    document.getElementById("pm0number_status").innerHTML = "Dangerous";
+    document.getElementById("pm0number_status").style.color = "#FF0000";
+
+    document.getElementById("pm1number_status").innerHTML = "Dangerous";
+    document.getElementById("pm1number_status").style.color = "#FF0000";
+
+    document.getElementById("pm2number_status").innerHTML = "Dangerous";
+    document.getElementById("pm2number_status").style.color = "#FF0000";
+
+    document.getElementById("pm4number_status").innerHTML = "Dangerous";
+    document.getElementById("pm4number_status").style.color = "#FF0000";
+
+    document.getElementById("pm10number_status").innerHTML = "Dangerous";
+    document.getElementById("pm10number_status").style.color = "#FF0000";
+  } else {
+    document.getElementById("pm0number_status").innerHTML = "Normal";
+    document.getElementById("pm0number_status").style.color = "#000000";
+
+    document.getElementById("pm1number_status").innerHTML = "Normal";
+    document.getElementById("pm1number_status").style.color = "#000000";
+
+    document.getElementById("pm2number_status").innerHTML = "Normal";
+    document.getElementById("pm2number_status").style.color = "#000000";
+
+    document.getElementById("pm4number_status").innerHTML = "Normal";
+    document.getElementById("pm4number_status").style.color = "#000000";
+
+    document.getElementById("pm10number_status").innerHTML = "Normal";
+    document.getElementById("pm10number_status").style.color = "#000000";
+  }
+
+  if (data.typicalparticlesize > typicalparticlesize_threshold) {
+    document.getElementById("typicalparticlesize_status").innerHTML = "Dangerous";
+    document.getElementById("typicalparticlesize_status").style.color = "#FF0000";
+  } else {
+    document.getElementById("typicalparticlesize_status").innerHTML = "Normal";
+    document.getElementById("typicalparticlesize_status").style.color = "#000000";
+  }
+
+}
+
+// API calls and
+setInterval(function ( ) {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+      // Format
+      var data = JSON.parse(this.responseText);
+
+      updateIndividualDisplays(data);
+      updateTable(data);
+
+      // Update sensor arrays
+      temperature_arr = updateArray(data.temperature, temperature_arr);
+      humidity_arr = updateArray(data.humidity, humidity_arr);
+      particulates_arr = updateArray(data.pm2mass, particulates_arr);
+      pm1mass_arr = updateArray(data.pm1mass, pm1mass_arr);
+      pm2mass_arr = updateArray(data.pm2mass, pm2mass_arr);
+      pm4mass_arr = updateArray(data.pm4mass, pm4mass_arr);
+      pm10mass_arr = updateArray(data.pm10mass, pm10mass_arr);
+      pm1number_arr = updateArray(data.pm1number, pm1number_arr);
+      pm2number_arr = updateArray(data.pm2number, pm2number_arr);
+      pm4number_arr = updateArray(data.pm4number, pm4number_arr);
+      pm10number_arr = updateArray(data.pm10number, pm10number_arr);
+      typicalparticlesize_arr = updateArray(data.typicalparticlesize, typicalparticlesize_arr);
+      voc_arr = updateArray(data.voc, voc_arr);
+      occupancy_arr = updateArray(data.occupancy, occupancy_arr);
+      carbondioxide_arr = updateArray(data.carbondioxide, carbondioxide_arr);
+      carbonmonoxide_arr = updateArray(data.carbonmonoxide, carbonmonoxide_arr);
+      smoke_arr = updateArray(data.smoke, smoke_arr);
+      pressure_arr = updateArray(data.pressure, pressure_arr);
+
+      var pm1mass = data.pm1mass;
+      var pm2mass = data.pm2mass;
+      var pm4mass = data.pm4mass;
+      var pm10mass = data.pm10mass;
+      var pm0number = data.pm0number;
+      var pm1number = data.pm1number;
+      var pm2number = data.pm2number;
+      var pm4number = data.pm4number;
+      var pm10number = data.pm10number;
+      var typicalparticlesize = data.typicalparticlesize;
+
+      // Display arrays
+      if (DEBUG) {
+        document.getElementById("temperature_arr").innerHTML = temperature_arr;
+        document.getElementById("humidity_arr").innerHTML = humidity_arr;
+        document.getElementById("particulates_arr").innerHTML = particulates_arr;
+        document.getElementById("voc_arr").innerHTML = voc_arr;
+        document.getElementById("occupancy_arr").innerHTML = occupancy_arr;
+        document.getElementById("carbondioxide_arr").innerHTML = carbondioxide_arr;
+        document.getElementById("carbonmonoxide_arr").innerHTML = carbonmonoxide_arr;
+        document.getElementById("smoke_arr").innerHTML = smoke_arr;
+        document.getElementById("pressure_arr").innerHTML = pressure_arr;
+      }
+
+      // Get current time and update time array
+      var time = findTime();
+      time_arr = updateArray(time, time_arr);
+
+      // Update charts with new array values
+      var temperature_chart_data = {
+        labels: [time_arr[0], time_arr[1], time_arr[2], time_arr[3], time_arr[4], time_arr[5], time_arr[6]],
+        series: [temperature_arr]
+      };
+      var humidity_chart_data = {
+        labels: [time_arr[0], time_arr[1], time_arr[2], time_arr[3], time_arr[4], time_arr[5], time_arr[6]],
+        series: [humidity_arr]
+      };
+      var particulates_chart_data = {
+        labels: [time_arr[0], time_arr[1], time_arr[2], time_arr[3], time_arr[4], time_arr[5], time_arr[6]],
+        series: [pm1mass_arr, pm2mass_arr, pm4mass_arr, pm10mass_arr]
+      };
+      var particulates_number_chart_data = {
+        labels: [time_arr[0], time_arr[1], time_arr[2], time_arr[3], time_arr[4], time_arr[5], time_arr[6]],
+        series: [pm1number_arr, pm2number_arr, pm4number_arr, pm10number_arr]
+      };
+      var typicalparticlesize_chart_data = {
+        labels: [time_arr[0], time_arr[1], time_arr[2], time_arr[3], time_arr[4], time_arr[5], time_arr[6]],
+        series: [typicalparticlesize_arr]
+      };
+      var voc_chart_data = {
+        labels: [time_arr[0], time_arr[1], time_arr[2], time_arr[3], time_arr[4], time_arr[5], time_arr[6]],
+        series: [voc_arr]
+      };
+      var occupancy_chart_data = {
+        labels: [time_arr[0], time_arr[1], time_arr[2], time_arr[3], time_arr[4], time_arr[5], time_arr[6]],
+        series: [occupancy_arr]
+      };
+      var carbondioxide_chart_data = {
+        labels: [time_arr[0], time_arr[1], time_arr[2], time_arr[3], time_arr[4], time_arr[5], time_arr[6]],
+        series: [carbondioxide_arr]
+      };
+      var carbonmonoxide_chart_data = {
+        labels: [time_arr[0], time_arr[1], time_arr[2], time_arr[3], time_arr[4], time_arr[5], time_arr[6]],
+        series: [carbonmonoxide_arr]
+      };
+      var smoke_chart_data = {
+        labels: [time_arr[0], time_arr[1], time_arr[2], time_arr[3], time_arr[4], time_arr[5], time_arr[6]],
+        series: [smoke_arr]
+      };
+      var pressure_chart_data = {
+        labels: [time_arr[0], time_arr[1], time_arr[2], time_arr[3], time_arr[4], time_arr[5], time_arr[6]],
+        series: [pressure_arr]
+      };
+
+      // Update charts with new data
+      new Chartist.Line('#temperature_chart', temperature_chart_data);
+      new Chartist.Line('#humidity_chart', humidity_chart_data);
+      new Chartist.Line('#particulates_chart', particulates_chart_data);
+      new Chartist.Line('#voc_chart', voc_chart_data);
+      new Chartist.Line('#occupancy_chart', occupancy_chart_data);
+      new Chartist.Line('#carbondioxide_chart', carbondioxide_chart_data);
+      new Chartist.Line('#carbonmonoxide_chart', carbonmonoxide_chart_data);
+      new Chartist.Line('#smoke_chart', smoke_chart_data);
+      new Chartist.Line('#pressure_chart', pressure_chart_data);
+      new Chartist.Line('#particulates_number_chart', particulates_number_chart_data);
+      new Chartist.Line('#typicalparticlesize_chart', typicalparticlesize_chart_data);
+    }
+  };
+  xhttp.open("GET", "/data.cgi", true);
+  xhttp.send();
+}, 10000 ) ; // 10000 = 10 seconds
+
+
+</script>
 </html>
