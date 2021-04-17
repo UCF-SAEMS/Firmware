@@ -112,6 +112,7 @@
 
 #include <ti/drivers/apps/Button.h>
 #include <ti/drivers/apps/LED.h>
+#include <ti/drivers/PWM.h>
 
 // *********************** SAEMS-Specific Includes ***********************
 #include "zcl_ms.h"               // Sensor Clusters
@@ -191,6 +192,9 @@ extern "C" {
 #include "lib/CCS811/CCS811.h"
 #include "lib/Sensirion/SPS30/sps30.h"
 #include "lib/Sensirion/SCD30/scd30.h"
+#include "lib/ADPD188/ADPD188.h"
+#include "lib/ADPD188/adpd_i2c.h"
+#include "lib/ADPD188/adpd_gpio.h"
 
 /*********************************************************************
  * MACROS                                                           */
@@ -207,6 +211,7 @@ extern "C" {
 /*********************************************************************
  * GLOBAL VARIABLES
  */
+bool hardwareReady = false; // Changes to true once the i2c and serial interfaces are ready
 
 
 /*********************************************************************
@@ -300,6 +305,7 @@ uint16_t SCD30_co2 = 0;
 static uint16_t zclSampleLight_BdbCommissioningModes;
 uint8_t OnOff = 0xFE; // initialize to invalid
 uint8_t LightLevel = 0xFE;
+uint8_t LastLightLevel = 0xFE;
 
 Display_Handle display;
 
@@ -308,6 +314,8 @@ I2C_Params i2cParams;
 I2C_Transaction i2cTransaction;
 ADC_Params ADCparams;
 ADC_Handle adc;
+PWM_Handle four_khz_out_handle;
+PWM_Params four_khz_out_params;
 
 static Clock_Handle SensorDataClkHandle;
 static Clock_Struct SensorDataClkStruct;
@@ -316,13 +324,32 @@ static Clock_Struct MotionSensorClkStruct;
 static Clock_Handle OnOffClkHandle;
 static Clock_Struct OnOffClkStruct;
 
+static Clock_Handle CarbonMonoxide_Alarm_ClkHandle;
+static Clock_Struct CarbonMonoxide_Alarm_ClkStruct;
+static Clock_Handle Smoke_Alarm_ClkHandle;
+static Clock_Struct Smoke_Alarm_ClkStruct;
+static Clock_Handle ALARM_CLKHANDLE;
+static Clock_Struct ALARM_CLKSTRUCT;
+
+bool CO_ALARM = false;
+uint8_t CO_BroadcastMsg[] = {"\0\0\30CO"};
+uint8_t CO_transID = 0;
+
+bool SMOKE_ALARM = false;
+uint8_t Smoke_BroadcastMsg[] = {"\0\0\30Smoke"};;
+uint8_t Smoke_transID = 0;
+
 struct bme280_data bme_data;
 struct bme280_dev bme_dev;
 struct sps30_measurement m;
+struct adpd188_dev *adpd_dev;
+struct adpd188_init_param adpd_param;
 
 LMP91000 lmp = LMP91000(i2c, LMP91000_I2C_ADDRESS);
 ScioSense_CCS811 ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
 LEDBoard ledboard = LEDBoard(CONFIG_SPI_LEDBOARD);
+MCP23017 mcp = MCP23017(i2c, 0b0100001);
+StaticLED led = StaticLED();
 // ==================================================================================================================
 // ==================================================================================================================
 static uint8_t endPointDiscovered = 0x00;
@@ -438,6 +465,10 @@ static void SAEMS_getSensorData(void);
 float scaledHue(void);
 float scaledSaturation(void);
 float scaledIntensity(void);
+
+static void send_COAlarm_Broadcast(void);
+static void send_SmokeAlarm_Broadcast(void);
+
 // ===============================================================================================================
 // ===============================================================================================================
 
@@ -627,7 +658,7 @@ ZStatus_t SAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturatio
   SAEMS_ColorControl_CurrentSaturation = pCmd->saturation;
 
   // Pass the 'new hue and saturation' to the LED Board Driver Function
-  ledboard.hsi(scaledHue(), scaledSaturation(), scaledIntensity());
+  ledboard.hsi(scaledHue(), scaledSaturation(), scaledIntensity(), false);
 
   zstack_bdbRepChangedAttrValueReq_t ReqHue;
         ReqHue.attrID = ATTRID_COLOR_CONTROL_CURRENT_HUE;
@@ -685,6 +716,7 @@ static void SAEMS_OnOffCB( uint8_t cmd )
   // Turn off the light
   else if ( cmd == COMMAND_ON_OFF_OFF ){
     OnOff = LIGHT_OFF;
+    LastLightLevel = zclSampleLight_getCurrentLevelAttribute();
   }
 
 
@@ -726,7 +758,7 @@ static void SAEMS_LevelControlMoveToLevelCB( zclLCMoveToLevel_t *pCmd )
 
   zclSampleLight_updateCurrentLevelAttribute(newLevel);
 
-  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
+  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity(), false );
 }
 #endif
 
@@ -742,7 +774,6 @@ static void SAEMS_LevelControlMoveToLevelCB( zclLCMoveToLevel_t *pCmd )
 static void SAEMS_SensorsCallback(UArg a0){
 
   (void)a0;     // Parameter is not used
-  printf("The Sensor Data Transfer Callback has been entered\n");
 
   appServiceTaskEvents |= SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT;
 
@@ -750,7 +781,8 @@ static void SAEMS_SensorsCallback(UArg a0){
   Semaphore_post(appSemHandle);
 }
 
-int state = 0;
+int led_state = 0;
+uint32_t reading_num = 1;
 /*************************************************************************
  * @fn      SAEMS_getSensorData
  *
@@ -761,98 +793,146 @@ int state = 0;
  * @return  none
  */
 static void SAEMS_getSensorData(void){
-    printf("Gathering Sensor Data...\n");
     // Using driver functions, get data from I2C lines and store in the new struct
     // TO-DO:
     //--------------------------------------------------------------------------------------
     // Temperature, Humidity, Pressure
     bme280_if_get_all_sensor_data(&bme_data, &bme_dev);
-    char buffer[500];
 
     sensorDataNew.temperature = 0.1 *bme_data.temperature;
     sensorDataNew.pressure =    0.1 *bme_data.pressure;
     sensorDataNew.humidity =    0.01 *bme_data.humidity;
-
-    buffer[0] = '\0';
-    sprintf(buffer, "BME280: %6u deg C, %7u hPa, %6u %%RH\r\n", bme_data.temperature, bme_data.pressure, bme_data.humidity);
-    Display_printf(display, 1, 0, "%s", buffer);
-
-    float temp     = 0.1f *sensorDataNew.temperature;
-    float pressure = 0.1f *sensorDataNew.pressure;
-    float humidity = 0.1f *sensorDataNew.humidity;
-
-    buffer[0] = '\0';
-    sprintf(buffer, "BME280: %6.2f deg C, %7.2f hPa, %6.2f %%RH\r\n", temp, pressure, humidity);
-    Display_printf(display, 2, 0, "%s", buffer);
     //--------------------------------------------------------------------------------------
-    // Carbon Monoxide
-    lmp.setThreeLead();
-    lmp.setRLoad(0);
-    lmp.setIntZ(3);
-    lmp.setGain(5);
-    lmp.setIntRefSource();
-
-    uint8_t dataread = lmp.read(LMP91000_MODECN_REG);
-    double volts = ( (double) lmp.getADC(adc) ) * pow(10.0, -6.0);       // returned in uV - converting to V
-    double resistance = lmp.getGain();
-
-    printf("volts; %f\n", volts);
-    printf("resistance: %f\n", resistance);
-    double current = ( (double) volts / resistance ) * pow(10.0, 9.0);     // uA --> nA
-    printf("intermediate current nA: %f\n", current);
-    double co_sensitivity = 4.94;
-    
-    sensorDataNew.carbonmonoxide = (uint16_t) ( (current / co_sensitivity) * 100 );
-    //--------------------------------------------------------------------------------------
-    // VOC
+    // VOC & CO2
     ccs.sample();
+
     sensorDataNew.carbondioxide = ccs.getECO2();
     sensorDataNew.voc = ccs.getTVOC();
     CCS811_co2 = sensorDataNew.carbondioxide;
-
-    buffer[0] = '\0';
-    sprintf(buffer, "CCS811: %u, %u\r\n", sensorDataNew.voc, sensorDataNew.carbondioxide);
-    Display_printf(display, 4, 0, "%s", buffer);
-    //--------------------------------------------------------------------------------------
-    // MOTION 
-    buffer[0] = '\0';
-    sprintf(buffer, "MOTION: %d\r\n", GPIO_read(PIR_SENSOR) );
-    Display_printf(display, 5, 0, "%s", buffer);
     //--------------------------------------------------------------------------------------
     // Particulates
-    int16_t ret;
-
-    while (sps30_probe() != 0)
-    {
-      printf("SPS sensor probing failed\n");
-      sensirion_sleep_usec(1000000); /* wait 1s */
-    }
-    printf("SPS sensor probing successful\n");
-  
-    ret = sps30_start_measurement();
+    sensirion_sleep_usec(SPS30_MEASUREMENT_DURATION_USEC); /* wait 1s */
+    int ret = sps30_read_measurement(&m);
     if (ret < 0)
-      printf("error starting measurement\n");
-    printf("measurements started\n");
-  
-      sensirion_sleep_usec(SPS30_MEASUREMENT_DURATION_USEC); /* wait 1s */
-      ret = sps30_read_measurement(&m);
-      if (ret < 0)
-      {
-        printf("error reading measurement\n");
+    {
+      printf("error reading measurement\n");
+    }
+    else
+    {
+      sensorDataNew.typicalparticlesize = 100 * m.typical_particle_size;
+      sensorDataNew.pm1mass             = 100 * m.mc_1p0;
+      sensorDataNew.pm2mass             = 100 * m.mc_2p5;
+      sensorDataNew.pm4mass             = 100 * m.mc_4p0;
+      sensorDataNew.pm10mass            = 100 * m.mc_10p0;
+      sensorDataNew.pm1number           = 100 * m.nc_1p0;
+      sensorDataNew.pm2number           = 100 * m.nc_2p5;          
+      sensorDataNew.pm4number           = 100 * m.nc_4p0;
+      sensorDataNew.pm10number          = 100 * m.nc_10p0;   
+    }
+    //--------------------------------------------------------------------------------------
+    // Carbon Monoxide
+    adc = ADC_open(CO_OUT, &ADCparams);
+    double nA = lmp.getCurrent(adc);
+    double co_sensitivity = 7.00;
+    ADC_close( adc );
+
+    sensorDataNew.carbonmonoxide = (uint16_t) ( ceil(nA / co_sensitivity) );
+    // IF THE CARBON MONOXIDE MEASUREMENT IS ABOVE 50 -> SET OFF THE ALARM
+    if(sensorDataNew.carbonmonoxide > 50)
+      CO_ALARM = true;
+    //--------------------------------------------------------------------------------------
+    // Smoke
+      uint16_t samples;
+      uint16_t rxreg;
+      adpd188_reg_read(adpd_dev, ADPD188_REG_STATUS, &rxreg);    
+      uint16_t fifonumrx = rxreg >> 8;
+      
+      if( fifonumrx >= 4 ){
+        adpd188_reg_read(adpd_dev, 0x64, &samples);
+        adpd188_reg_read(adpd_dev, 0x68, &samples);
+        adpd188_reg_read(adpd_dev, 0x60, &samples);
+        sensorDataNew.smoke = samples;
+        adpd188_reg_read(adpd_dev, 0x60, &samples);
+        fifonumrx = fifonumrx - 4;
       }
-      else
-      {
-        sensorDataNew.typicalparticlesize = 100 * m.typical_particle_size;
-        sensorDataNew.pm1mass             = 100 * m.mc_1p0;
-        sensorDataNew.pm2mass             = 100 * m.mc_2p5;
-        sensorDataNew.pm4mass             = 100 * m.mc_4p0;
-        sensorDataNew.pm10mass            = 100 * m.mc_10p0;
-        sensorDataNew.pm1number           = 100 * m.nc_1p0;
-        sensorDataNew.pm2number           = 100 * m.nc_2p5;          
-        sensorDataNew.pm4number           = 100 * m.nc_4p0;
-        sensorDataNew.pm10number          = 100 * m.nc_10p0;   
+
+      // NEED TO ADD IF STATEMENT FOR SMOKE LEVEL
+
+    //--------------------------------------------------------------------------------------
+    // Power System Usage
+
+    // Voltage is obtained from the 5V_MainDet (DIO24)
+    adc = ADC_open(POWER_POLL, &ADCparams);
+    uint16_t voltage;
+    ADC_convert(adc, &voltage);
+    uint32_t voltage_uV = ADC_convertToMicroVolts(adc, voltage);
+    ADC_close(adc);
+
+    // If the voltage is less than 1V
+    if( voltage_uV < 1000000){
+      // Toggle LED between Green and Off - the device is powered from the battery
+      if(led_state == 0){
+        led.set( RGB_States::GREEN );     led_state = 1;
       }
-  
+      else if(led_state == 1){
+        led.set(false, false, false);     led_state = 0;
+      }
+    }
+    else{
+      // Otherwise, display steady Green and Red on the LED - the device is powered through PoE
+      led.set(RGB_States::RED | RGB_States::GREEN);
+    } 
+      
+    //--------------------------------------------------------------------------------------
+    printf("--------------------------------------------------------- \n");
+    printf("|#%d         S.A.E.M.S Device Measurements               |\n", reading_num++);
+    printf("--------------------------------------------------------- \n");
+    printf("|     Sensor     |   Measurement   |        Value       |\n");
+    printf("--------------------------------------------------------- \n");
+    printf("|     BME280     |   Temperature   |      %.2f C\t|\n", 0.1f*sensorDataNew.temperature);
+    printf("|     BME280     |     Pressure    |     %.1f hPa\t|\n", 0.1f*sensorDataNew.pressure);
+    printf("|     BME280     |     Humidity    |      %.2f %%\t|\n", 0.1f*sensorDataNew.humidity);
+    printf("|   EKMC1691111  |      Motion     |        %d\t\t|\n", sensorDataNew.occupancy);
+    printf("|     CCS811     |       CO2       |       %d ppm\t|\n", sensorDataNew.carbondioxide);
+    printf("|     CCS811     |       VOC       |        %d ppb\t|\n", sensorDataNew.voc);
+    printf("--------------------------------------------------------- \n");
+    printf("|                |    1.0 Mass     |       %.2f\t\t|\r\n"
+           "|                |    1.0 Count    |       %.2f\t|\r\n"
+           "|                |    2.5 Mass     |       %.2f\t\t|\r\n"
+           "|     SPS30      |    2.5 Count    |       %.2f\t|\r\n"
+           "| (Particulates) |    4.0 Mass     |       %.2f\t\t|\r\n"
+           "|                |    4.0 Count    |       %.2f\t|\r\n"
+           "|                |    10.0 Mass    |       %.2f\t\t|\r\n"
+           "|                |   10.0 Count    |       %.2f\t|\n",
+           sensorDataNew.pm1mass/100.00, sensorDataNew.pm1number/100.00, 
+           sensorDataNew.pm2mass/100.00, sensorDataNew.pm2number/100.00,
+           sensorDataNew.pm4mass/100.00, sensorDataNew.pm4number/100.00, 
+           sensorDataNew.pm10mass/100.00, sensorDataNew.pm10number/100.00);
+    printf("--------------------------------------------------------- \n");
+    printf("|    LMP91000    |       CO       |     %.2f ppm\t|\n", sensorDataNew.carbonmonoxide/1.00);
+    printf("|    ADPD188BI   |      Smoke     |        %d\t\t|\n", sensorDataNew.smoke);
+    printf("--------------------------------------------------------- \n");
+   
+    // CO Alarm Handling
+    if(CO_ALARM){
+      // Start the CO Alarm and the Alarm Timer
+      UtilTimer_start( &ALARM_CLKSTRUCT );
+      UtilTimer_start( &CarbonMonoxide_Alarm_ClkStruct );
+      // Send Broadcast message to other SAEMS routers in the network
+      send_COAlarm_Broadcast();
+      // needs to be handled in zclSampleLight_processAfIncomingMsgInd
+    }
+    // Smoke Alarm Handling
+    if(SMOKE_ALARM){
+      // Start the Smoke Alarm and the Alarm Timer
+      UtilTimer_start( &ALARM_CLKSTRUCT );
+      UtilTimer_start( &Smoke_Alarm_ClkStruct );
+      // Send Broadcast message to other SAEMS routers in the network
+      send_SmokeAlarm_Broadcast();
+      // needs to be handled in zclSampleLight_processAfIncomingMsgInd
+    }
+      
+    
     //--------------------------------------------------------------------------------------
     // The following is sample data...
     #ifdef ZCL_MEASURE_TESTING
@@ -864,7 +944,6 @@ static void SAEMS_getSensorData(void){
       sensorDataNew.carbondioxide = 1000;
       sensorDataNew.smoke = 1000;
       sensorDataNew.voc = 1000;
-      sensorDataNew.particulates = 1000;
       sensorDataNew.occupancy = 0;
 
       measure_Testing = 1;
@@ -876,7 +955,6 @@ static void SAEMS_getSensorData(void){
         sensorDataNew.carbondioxide = 1250;
         sensorDataNew.smoke = 1250;
         sensorDataNew.voc = 1250;
-        sensorDataNew.particulates = 1250;
         sensorDataNew.occupancy = 1;
 
         measure_Testing = 0;
@@ -884,6 +962,91 @@ static void SAEMS_getSensorData(void){
     #endif
 }
 
+/************************************************************
+ * @fn        send_COAlarm_Broadcast
+ * 
+ * @brief     Helper function for sending Broadcast for CO Alarm
+ * 
+ * @param     none  
+ * 
+ * @return    none
+ */
+static void send_COAlarm_Broadcast(){
+  // Get the ZCL Frame Counter
+  zstack_getZCLFrameCounterRsp_t pRsp;
+  Zstackapi_getZCLFrameCounterReq(appServiceTaskId, &pRsp);
+
+  // Increment the transaction ID of the message by 1
+  CO_BroadcastMsg[1] = CO_transID++;
+
+  // Construct the Raw Data message to send out over broadcast
+  zstack_afDataReq_t COreq;
+  COreq.dstAddr.addrMode = zstack_AFAddrMode_BROADCAST;
+  COreq.dstAddr.addr.shortAddr = NWK_BROADCAST_SHORTADDR_DEVALL;
+  COreq.dstAddr.endpoint = SAMPLELIGHT_ENDPOINT;
+  COreq.pRelayList = NULL;
+  COreq.n_relayList = 0;
+  COreq.srcEndpoint = SAMPLELIGHT_ENDPOINT;
+  COreq.clusterID = SAEMS_CO_ALARM_CLUSTER_ID;
+  COreq.transID = &pRsp.zclFrameCounter;
+  COreq.options.ackRequest = FALSE;
+  COreq.options.apsSecurity = FALSE;
+  COreq.options.limitConcentrator = FALSE;
+  COreq.options.skipRouting = FALSE;
+  COreq.options.suppressRouteDisc = FALSE;
+  COreq.options.wildcardProfileID = FALSE;
+  COreq.radius = AF_DEFAULT_RADIUS;
+  COreq.n_payload = sizeof(CO_BroadcastMsg);
+  COreq.pPayload = CO_BroadcastMsg;
+
+  // Check the status for any errors
+  zstack_ZStatusValues status = Zstackapi_AfDataReq(appServiceTaskId, &COreq);
+  // Reset the associated boolean variable to FALSE
+  CO_ALARM = false;
+}
+
+/************************************************************
+ * @fn        send_SmokeAlarm_Broadcast
+ * 
+ * @brief     Helper function for sending Broadcast for Smoke Alarm
+ * 
+ * @param     none  
+ * 
+ * @return    none
+ */
+static void send_SmokeAlarm_Broadcast(){
+  // Get the ZCL Frame Counter
+  zstack_getZCLFrameCounterRsp_t pRsp;
+  Zstackapi_getZCLFrameCounterReq(appServiceTaskId, &pRsp);
+
+  // Increment the transaction ID of the message by 1
+  Smoke_BroadcastMsg[1] = Smoke_transID++;
+
+  // Construct the Raw Data message to send out over broadcast
+  zstack_afDataReq_t SMOKEreq;
+  SMOKEreq.dstAddr.addrMode = zstack_AFAddrMode_BROADCAST;
+  SMOKEreq.dstAddr.addr.shortAddr = NWK_BROADCAST_SHORTADDR_DEVALL;
+  SMOKEreq.dstAddr.endpoint = SAMPLELIGHT_ENDPOINT;
+  SMOKEreq.pRelayList = NULL;
+  SMOKEreq.n_relayList = 0;
+  SMOKEreq.srcEndpoint = SAMPLELIGHT_ENDPOINT;
+  SMOKEreq.clusterID = SAEMS_SMOKE_ALARM_CLUSTER_ID;
+  SMOKEreq.transID = &pRsp.zclFrameCounter;
+  SMOKEreq.options.ackRequest = FALSE;
+  SMOKEreq.options.apsSecurity = FALSE;
+  SMOKEreq.options.limitConcentrator = FALSE;
+  SMOKEreq.options.skipRouting = FALSE;
+  SMOKEreq.options.suppressRouteDisc = FALSE;
+  SMOKEreq.options.wildcardProfileID = FALSE;
+  SMOKEreq.radius = AF_DEFAULT_RADIUS;
+  SMOKEreq.n_payload = sizeof(Smoke_BroadcastMsg);
+  SMOKEreq.pPayload = Smoke_BroadcastMsg;
+
+  // Check the status for any errors
+  zstack_ZStatusValues status = Zstackapi_AfDataReq(appServiceTaskId, &SMOKEreq);
+  // Reset the associated boolean variable to FALSE
+  SMOKE_ALARM = false;
+}
 /************************************************************
  * @fn        SAEMS_detectedMotionInterrupt
  * 
@@ -921,16 +1084,26 @@ void SAEMS_detectedMotionInterrupt(uint_least8_t index){
  */ 
 static void SAEMS_MotionSensorCB(UArg a0){
   (void)a0;
-  // Motion State 0: Debouncing input for only 1 sample
+  // Motion State 0: Debouncing input for only 1 sample and wait for the defined interval before polling again
   if( motion_state == 0){
     printf("Input has been debounced...\t");
     debounce = 0;     motion_state = 1;
-    printf("Renewing Interval Timer: 30 secs\n");
-    UtilTimer_setTimeout( MotionSensorClkHandle, 30000);
+    printf("Waiting \"Defined SmartThings Interval\" secs to poll again\n");
+    // Disable the motion sensor interrupt and wait for the set amount of time before enabling 
+    GPIO_disableInt(PIR_SENSOR);
+    UtilTimer_setTimeout( MotionSensorClkHandle, (sensorDataCurrent.pollingRate*1000) );
     UtilTimer_start( &MotionSensorClkStruct );
   }
-  // Motion State 1:
+  // Motion State 1: Polling Rest Period finishes
   else if( motion_state == 1){
+    GPIO_enableInt(PIR_SENSOR);
+    // Poll for motion for 15 seconds 
+    motion_state = 2;
+    UtilTimer_setTimeout( MotionSensorClkHandle, 15000 );
+    UtilTimer_start( &MotionSensorClkStruct );
+  }
+  // Motion State 2: No motion detected during the polling period
+  else if( motion_state == 2){
     printf("NO MOTION DETECTED!\n");
     sensorDataNew.occupancy = 0;
     printf("Setting Occupancy: %d\t", sensorDataNew.occupancy);
@@ -969,23 +1142,33 @@ static void SAEMS_OnOff_Timeout_Callback( UArg a0 ){
 static void SAEMS_OnOff_Ramp( void ){
   printf("SAMES_OnOff_Ramp()\n");
 
+  printf("Last Light Level: %d\n", LastLightLevel);
+
   // Received ON_OFF_ON COMMAND
   if( OnOff == LIGHT_ON ){
   printf("In the LIGHT_ON branch...\n");
   // get the current light level, increment, update the light level, and send to LED Board
   LightLevel = zclSampleLight_getCurrentLevelAttribute();
   printf("> Current Level: %d\n", LightLevel);
-  LightLevel += 10;
+
+  // if statement to get rid of the uint8_t overflow when level is at 100%
+  if( LightLevel + 10 >= LastLightLevel){
+    LightLevel = LastLightLevel;
+  }else{
+    LightLevel += 10;
+  }
+
   printf("> New Level: %d\n", LightLevel);
   zclSampleLight_updateCurrentLevelAttribute( LightLevel );
-  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
+  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity(), false );
 
     // Re-start the timer until the condition has been met to stop ramping
-    if( zclSampleLight_getCurrentLevelAttribute() >= 127 ){
+    if( zclSampleLight_getCurrentLevelAttribute() >= LastLightLevel ){
       // CONDITION MET: Do not restart the timer
       printf("CONDITION MET!!\n");
+      zclSampleLight_updateCurrentLevelAttribute(LastLightLevel);
       zclSampleLight_updateOnOffAttribute(OnOff);
-    }else if( zclSampleLight_getCurrentLevelAttribute() < 127 ){
+    }else if( zclSampleLight_getCurrentLevelAttribute() < LastLightLevel ){
       // CONDITION NOT MET: Restart the timer
       printf("Condition NOT MET: Restarting the timer!!\n");
       UtilTimer_start( &OnOffClkStruct );
@@ -999,23 +1182,169 @@ static void SAEMS_OnOff_Ramp( void ){
   // get the current light level, decrement, update the light level, and send to LED Board
   LightLevel = zclSampleLight_getCurrentLevelAttribute();
   printf("> Current Level: %d\n", LightLevel);
-  LightLevel -= 10;
+
+  // if statement to get rid of the uint8_t overflow when level is at 0%
+  if( LightLevel < 10 ){
+    LightLevel = LastLightLevel;
+  }else{
+    LightLevel -= 10;
+  }
+
   printf("> New Level: %d\n", LightLevel);
   zclSampleLight_updateCurrentLevelAttribute( LightLevel );
-  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
+  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity(), true );
 
     // Re-start the timer until the condition has been met to stop ramping
-    if( zclSampleLight_getCurrentLevelAttribute() <= 25  ){
+    if( zclSampleLight_getCurrentLevelAttribute() <= 10  ){
       // CONDITION MET: Do not restart the timer
-      zclSampleLight_updateOnOffAttribute(OnOff);
       printf("CONDITION MET!!\n");
-    }else if( zclSampleLight_getCurrentLevelAttribute() > 25 ){
+      zclSampleLight_updateCurrentLevelAttribute(0);
+      zclSampleLight_updateOnOffAttribute(OnOff);
+    }else if( zclSampleLight_getCurrentLevelAttribute() > 10 ){
       // CONDITION NOT MET: Restart the timer
       printf("Condition NOT MET: Restarting the timer!!\n");
       UtilTimer_start( &OnOffClkStruct );
     }
 
   }
+}
+
+int CO_alarm_state = 0;
+/*****************************************************************
+ * @fn          SAEMS_CarbonMonoxide_Alarm_handler
+ * 
+ * @brief       Handler function for controlling alarm on Carbon Monoxide 
+ * 
+ * @param       a0 - not in use
+ * 
+ * @return      none
+ */
+static void SAEMS_CarbonMonoxide_Alarm_handler(UArg a0){
+  (void)a0;
+
+  // make the alarm beep every .5 sec
+  if(CO_alarm_state == 0){
+    // CARBON MONOXIDE: ALARM ON
+    PWM_start(four_khz_out_handle);
+    CO_alarm_state = 1;
+  }
+  else if(CO_alarm_state == 1){
+    // CARBON MONOXIDE: ALARM OFF
+    PWM_stop(four_khz_out_handle);
+    CO_alarm_state = 0;
+  }
+}
+
+int Smoke_alarm_state = 0;
+/*****************************************************************
+ * @fn        SAEMS_Smoke_Alarm_handler
+ * 
+ * @brief     Handler function for controlling alarm for Smoke Detection
+ * 
+ * @param     a0 - not in use
+ * 
+ * @return    none
+ */
+static void SAEMS_Smoke_Alarm_handler(UArg a0){
+  (void)a0;
+
+  // make the alarm beep every 1.5 sec
+  if(CO_alarm_state == 0){
+    // SMOKE: ALARM ON
+    PWM_start(four_khz_out_handle);
+    CO_alarm_state = 1;
+  }
+  else if(CO_alarm_state == 1){
+    // SMOKE: ALARM OFF
+    PWM_stop(four_khz_out_handle);
+    CO_alarm_state = 0;
+  }
+}
+
+/*****************************************************************
+ * @fn        SAEMS_ALARM_handler
+ * 
+ * @brief     Handler function for controlling the duration of an alarm
+ * 
+ * @param     a0 - not in use
+ * 
+ * @return    none
+ */
+static void SAEMS_ALARM_handler(UArg a0){
+  (void)a0;
+  // If CO or smoke is greater than their respective values 
+  //  - Continue the alarm
+  //  - Otherwise, stop the alarm
+  if(sensorDataNew.carbonmonoxide > 50){
+    UtilTimer_start( &ALARM_CLKSTRUCT );
+  }else{
+    UtilTimer_stop( &ALARM_CLKSTRUCT );
+    UtilTimer_stop( &CarbonMonoxide_Alarm_ClkStruct );
+  }
+
+  if(sensorDataNew.smoke > 9999){
+    UtilTimer_start( &ALARM_CLKSTRUCT );
+  }else{
+    UtilTimer_start( &ALARM_CLKSTRUCT );
+    UtilTimer_stop( &Smoke_Alarm_ClkStruct );
+  }
+}
+/*****************************************************************
+ * @fn          SAEMS_Sensors_Initialization
+ * 
+ * @brief       Helper function to initialize the sensor subsystem on start-up
+ * 
+ * @param       none
+ * 
+ * @return      none
+ */
+
+void SAEMS_Sensors_Initialization(){
+  //------------------------------------------------------------
+  ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
+  ccs.begin();
+  ccs.start(1);
+  //------------------------------------------------------------
+  adpd188_start(&i2c);
+  uint16_t rxtemp[1];
+  adpd188_init(&adpd_dev, &adpd_param);
+  adpd188_reg_write(adpd_dev, 0x4b, 0x2612 | (1 << 7));
+  adpd188_mode_set(adpd_dev, ADPD188_PROGRAM);
+  adpd188_smoke_detect_setup(adpd_dev);
+  adpd188_reg_read(adpd_dev, 0x4b, rxtemp);
+  adpd188_reg_write(adpd_dev, ADPD188_REG_STATUS, 0x80FF);
+  adpd188_mode_set(adpd_dev, ADPD188_NORMAL);
+  //------------------------------------------------------------
+  lmp.unlock();
+  lmp.setBiasSign(1);
+  lmp.setRLoad(3);
+  lmp.setIntZ(0);
+  lmp.setGain(1);
+  lmp.setIntRefSource();
+  lmp.setBias(0);
+  lmp.setThreeLead();
+  ADC_close(adc);
+  //------------------------------------------------------------
+  bme_dev = { 0 };
+  bme_data = { 0 };
+  bme280_if_init(&bme_dev, &i2c);
+  //------------------------------------------------------------
+  sensirion_i2c_init(&i2c);
+  int16_t ret;
+  if (sps30_probe() != 0){
+    printf("SPS sensor probing failed\n");
+    sensirion_sleep_usec(1000000); /* wait 1s */
+  }
+  printf("SPS sensor probing successful\n");
+
+  ret = sps30_start_measurement();
+  if (ret < 0)
+    printf("error starting measurement\n");
+  printf("measurements started\n");
+  //------------------------------------------------------------
+  // Set the default polling rate (60s = 1 min)
+  sensorDataCurrent.pollingRate = 60;
+  //------------------------------------------------------------
 }
 // ================================================================================================================
 // ================================================================================================================
@@ -1031,6 +1360,10 @@ static void SAEMS_OnOff_Ramp( void ){
  * @return      none
  */
     int x = 0;
+#include <xdc/runtime/System.h>
+
+     MCP23017 *mcpptr;
+
 void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 {
   // Save and register the function pointers to the NV drivers
@@ -1040,22 +1373,22 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   // Initialize application
   zclSampleLight_initialization();
 
+  GPIO_init();
   Display_init();
   SPI_init();
   I2C_init();
   ADC_init();
   GPIO_init();
+  PWM_init();
 
-  /* Open the display for output */
-  display = Display_open(Display_Type_UART, NULL);
-  if (display == NULL)
-  {
-    /* Failed to open display driver */
-    while (1)
-      ;
-  }
-
-  Display_printf(display, 0, 0, "-- SAEMS Startup --");
+  PWM_Params_init(&four_khz_out_params);
+  four_khz_out_params.periodUnits  = PWM_PERIOD_HZ;               // Period is in Hz
+  four_khz_out_params.periodValue  = 4000;                        // 4kHz
+  four_khz_out_params.dutyUnits    = PWM_DUTY_FRACTION;           // Duty is fraction of period
+  four_khz_out_params.dutyValue    = PWM_DUTY_FRACTION_MAX / 2;   // 50% duty cycle
+  four_khz_out_handle = PWM_open(CONFIG_PWM_4KHZ, &four_khz_out_params);
+  if (four_khz_out_handle == NULL)
+    printf("CONFIG_PWM_4KHZ did not open\\n");
 
   I2C_Params_init(&i2cParams);
   i2cParams.bitRate = I2C_100kHz;
@@ -1066,31 +1399,24 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ADCparams.isProtected = true;
   adc = ADC_open(CO_OUT, &ADCparams);
 
-  ccs = ScioSense_CCS811(i2c, CCS811_SLAVEADDR_1);
-
-  ccs.begin();
-  ccs.start(1);
-
-  bme_dev = { 0 };
-  bme_data = { 0 };
-  bme280_if_init(&bme_dev, &i2c);
-
-  sensirion_i2c_init(&i2c);
+  SAEMS_Sensors_Initialization();
 
   // Set up the io expander
-  MCP23017 mcp = MCP23017(i2c, 0b0100001);
+  mcp = MCP23017(i2c, 0b0100001);
   mcp.init();
+  mcpptr = &mcp;
 
 #if SAEMS_HARDWARE_VERSION == 0
-  StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_B, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_R);
+  led = StaticLED(mcp, MCP_PinMap::I_LED_B, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_R);
 #elif SAEMS_HARDWARE_VERSION == 1
   StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_R, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_B);
 #endif
 
-  led.set(RGB_States::RED | RGB_States::GREEN);
+  led.set(RGB_States::NONE);
 
   ledboard.init();
-  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity() );
+  ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity(), false );
+  hardwareReady = true;
 
   GPIO_setCallback( PIR_SENSOR, SAEMS_detectedMotionInterrupt );
   GPIO_enableInt( PIR_SENSOR );
@@ -1219,6 +1545,8 @@ static void zclSampleLight_Init( void )
 
   #ifdef ZCL_LIGHTING
   // >>>> Register the ZCL Lighting Cluster Library callback functions <<<<
+  /* If this function throws an "undefined symbol" error, then be sure that files zcl_lighting.c and .h 
+  are included within the build path */
   zclLighting_RegisterCmdCallbacks( SAMPLELIGHT_ENDPOINT, &zclSAEMS_CmdCallbacks );
   #endif // ZCL_LIGHTING
 
@@ -1468,6 +1796,34 @@ static void zclSampleLight_initializeClocks(void)
     25,
     0, false, 0); 
     // =============================================================
+
+    // =============================================================
+    // ================= Carbon Monoxide Alarm Clock ===============
+    ALARM_CLKHANDLE = UtilTimer_construct(
+    &ALARM_CLKSTRUCT,
+    SAEMS_ALARM_handler,
+    30000,  
+    0, false, 0);
+    // =============================================================    
+
+    // =============================================================
+    // ================= Carbon Monoxide Alarm Clock ===============
+    CarbonMonoxide_Alarm_ClkHandle = UtilTimer_construct(
+    &CarbonMonoxide_Alarm_ClkStruct,
+    SAEMS_CarbonMonoxide_Alarm_handler,
+    500,
+    1000, false, 0);
+    // =============================================================
+
+    // =============================================================
+    // ====================== Smoke Alarm Clock ====================
+    Smoke_Alarm_ClkHandle = UtilTimer_construct(
+    &Smoke_Alarm_ClkStruct,
+    SAEMS_Smoke_Alarm_handler,
+    1500,
+    3000, false, 0);
+    // =============================================================
+
 }
 
 #if ZG_BUILD_ENDDEVICE_TYPE
@@ -1566,7 +1922,6 @@ static void zclSampleLight_process_loop(void)
     {
         zstackmsg_genericReq_t *pMsg = NULL;
         bool msgProcessed = FALSE;
-
         /* Wait for response message */
         if(Semaphore_pend(appSemHandle, BIOS_WAIT_FOREVER ))
         {
@@ -1586,7 +1941,6 @@ static void zclSampleLight_process_loop(void)
             }
 
             if( appServiceTaskEvents & SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT ){
-              printf("Entering the Data Transfer functions\n");
               SAEMS_getSensorData();
               SAEMS_updateSensorData();
               
@@ -1986,6 +2340,17 @@ static void zclSampleLight_processAfIncomingMsgInd(zstack_afIncomingMsgInd_t *pI
     afMsg.cmd.Data = pInMsg->pPayload;
 
     zcl_ProcessMessageMSG(&afMsg);
+
+    // Incoming Alarm Signal Handling
+    //  check to see if the message was a broadcast message
+    if(afMsg.wasBroadcast){
+      // If the ClusterId is FF01 - raise the CO Alarm
+      if(afMsg.clusterId == SAEMS_CO_ALARM_CLUSTER_ID)
+        CO_ALARM = true;
+      // If the ClusterIF is FF02 - raise the Smoke Alarm
+      else if(afMsg.clusterId == SAEMS_SMOKE_ALARM_CLUSTER_ID)
+        SMOKE_ALARM = true;
+    }
 }
 
 

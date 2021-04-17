@@ -105,6 +105,8 @@ extern "C"
 #define SAEMS_ATTRID_PARTICULATES_NUMBER_10 0x0007
 #define SAEMS_ATTRID_PARTICULATES_TYPICAL 0x0008
 
+#define SAEMS_CO_ALARM_CLUSTER_ID 0xFF01
+#define SAEMS_SMOKE_ALARM_CLUSTER_ID 0xFF02
 
 // Update structures
 #define ZCL_DATA_UPDATE
@@ -175,6 +177,7 @@ typedef struct SAEMS_SensorData_t {
     int16_t humidity;
     int16_t pressure;
     int16_t occupancy;
+    int16_t pollingRate;
     int16_t carbonmonoxide;
     int16_t carbondioxide;
     int16_t smoke;

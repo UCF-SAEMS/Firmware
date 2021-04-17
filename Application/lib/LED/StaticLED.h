@@ -33,6 +33,7 @@ public:
   bool stateR, stateG, stateB;
 
   StaticLED(MCP23017 &mcp, uint8_t pinR, uint8_t pinG, uint8_t pinB);
+  StaticLED();
   virtual ~StaticLED();
 
   void set(int state);

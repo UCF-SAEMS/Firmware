@@ -11,7 +11,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include "lib/MCP23017/MCP23017.h"
 
+extern MCP23017 *mcpptr;
+
+extern Semaphore_Handle semSPIHandle;
+extern bool hardwareReady;
 
 #define SAEMS_HARDWARE_VERSION 0
 enum MCP_PinMap {

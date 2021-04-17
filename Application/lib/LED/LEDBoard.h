@@ -31,7 +31,7 @@ public:
 
   void init();
 
-  void hsi(float H, float S, float I);
+  void hsi(float H, float S, float I, bool receivedFromOff);
   void writetoled(uint8_t r, uint8_t g, uint8_t b, uint8_t w, uint8_t colorbrightness, uint8_t wbrightness);
 };
 

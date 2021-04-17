@@ -22,6 +22,10 @@ StaticLED::StaticLED(MCP23017 &mcp, uint8_t pinR, uint8_t pinG, uint8_t pinB)
   set(RGB_States::NONE);
 }
 
+StaticLED::StaticLED(){
+  // NULL constructor - allows for global declaration of StaticLED variable
+}
+
 StaticLED::~StaticLED()
 {
   // TODO Auto-generated destructor stub

@@ -81,7 +81,7 @@
 #define DEFAULT_MOVE_RATE 0 // as fast as possible
 
 #define DEFAULT_ON_OFF_STATE LIGHT_ON
-#define DEFAULT_LEVEL 127
+#define DEFAULT_LEVEL 40
 
 // Used to update sensor structs
 #define ZCL_DATA_UPDATE
@@ -117,7 +117,7 @@
 #define OCCUPANCY_UPDATE_THRESHOLD 1
 #define CARBONMONOXIDE_UPDATE_THRESHOLD 0001
 #define CARBONDIOXIDE_UPDATE_THRESHOLD 0001
-#define SMOKE_UPDATE_THRESHOLD 0010
+#define SMOKE_UPDATE_THRESHOLD 0001
 #define VOC_UPDATE_THRESHOLD 0001
 #define PARTICULATES_UPDATE_THRESHOLD 0001
 
@@ -503,7 +503,7 @@ CONST zclAttrRec_t zclSampleLight_Attrs[] =
       ATTRID_LEVEL_DEFAULT_MOVE_RATE,
       ZCL_DATATYPE_UINT16,
       ACCESS_CONTROL_READ | ACCESS_CONTROL_WRITE,
-      (void *)&zclSampleLight_LevelDefaultMoveRate
+      (void *)&sensorDataCurrent.pollingRate
     }
   },
   {
@@ -1050,7 +1050,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
     }
 
     // Update carbonmonoxide value
-    if (abs(sensorDataCurrent.carbonmonoxide - sensorDataNew.carbonmonoxide) > CARBONMONOXIDE_UPDATE_THRESHOLD) {
+    if (abs(sensorDataCurrent.carbonmonoxide - sensorDataNew.carbonmonoxide) >= CARBONMONOXIDE_UPDATE_THRESHOLD) {
         sensorDataCurrent.carbonmonoxide = sensorDataNew.carbonmonoxide;
         printf("Carbonmonoxide updated to %u\n", (unsigned int)sensorDataCurrent.carbonmonoxide);
 
@@ -1107,7 +1107,7 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
         Zstackapi_bdbRepChangedAttrValueReq(appServiceTaskId, &Req);
     }
 
-        
+        printf("\nCurrent Motion Polling Time: %u\n",(unsigned int)sensorDataCurrent.pollingRate);
 
 
     printf("***************************************\n");
