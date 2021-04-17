@@ -1877,6 +1877,8 @@ size_t formatJSONString(char * buf, size_t len)
              "\"voc\" : %d, \r\n"
              "\"occupancy\" :  %d, \r\n"
              "\"smoke\" : %d, \r\n"
+             "\"carbonmonoxide\" : %d, \r\n"
+             "\"carbondioxide\" : %d, \r\n"
              "\"pm1mass\" :  %.2f, \r\n"
              "\"pm2mass\" :  %.2f, \r\n"
              "\"pm4mass\" :  %.2f, \r\n"
@@ -1895,6 +1897,8 @@ size_t formatJSONString(char * buf, size_t len)
              sensorDataCurrent.voc,
              sensorDataCurrent.occupancy,
              sensorDataCurrent.smoke,
+             sensorDataCurrent.carbonmonoxide,
+             sensorDataCurrent.carbondioxide,
              sensorDataCurrent.pm1mass * 0.01f,
              sensorDataCurrent.pm2mass * 0.01f,
              sensorDataCurrent.pm4mass * 0.01f,

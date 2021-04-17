@@ -68,9 +68,10 @@ uint8_t predefined_get_cgi_processor(uint8_t *uri_name, uint8_t *buf, uint16_t *
     }
     else if (strcmp((const char*) uri_name, "data.cgi") == 0)
     {
-        *len = formatJSONString((char*) buf, sizeof(g_recv_buf));
+        *len = formatJSONString((char*) buf, sizeof(g_send_buf));
         return 1;
     }
+    return 0;
 }
 
 uint8_t predefined_set_cgi_processor(uint8_t *uri_name, uint8_t *uri, uint8_t *buf, uint16_t *len)
@@ -771,7 +772,6 @@ void ethstore_task(NVINTF_nvFuncts_t *pfnNV)
     httpServer_init(g_send_buf, g_recv_buf, sizeof(sockets), sockets);
     reg_httpServer_cbfunc(NULL, NULL, get1sTick);
 
-    reg_httpServer_webContent((uint8_t*) "index.html", (uint8_t*) "<html><body>hi</body></html>");
     for (;;)
     {
       httpServer_run(0);

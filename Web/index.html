@@ -17,7 +17,15 @@
         height: 100%;
         min-height: 100%;
         font-family: Verdana, sans-serif;
+        font-size: 10pt;
+    }
 
+    .row {
+      height: 380px;
+    }
+
+    .row div p {
+      margin: 15px;
     }
 
     .graph-class {
@@ -43,11 +51,12 @@
       padding: 0px;
       width: 32.5%;
       float: left;
-      height: 400px;
+      height: 100%;
       margin-top: 3px;
       margin-bottom: 3px;
       margin-right: 3px;
       margin-left: 3px;
+      position: relative;
     }
     .class4,
     .class5,
@@ -57,11 +66,12 @@
       padding: 0px;
       width: 32.5%;
       float: left;
-      height: 400px;
+      height: 100%;
       margin-top: 3px;
       margin-bottom: 3px;
       margin-right: 3px;
       margin-left: 3px;
+      position: relative;
     }
     .class7,
     .class8,
@@ -71,11 +81,12 @@
       padding: 0px;
       width: 32.5%;
       float: left;
-      height: 400px;
+      height: 100%;
       margin-top: 3px;
       margin-bottom: 3px;
       margin-right: 3px;
       margin-left: 3px;
+      position: relative;
     }
 
     table {
@@ -109,6 +120,12 @@
       background-color: #DDDDDD; /* Black */
       overflow-x: hidden; /* Disable horizontal scroll */
       padding-top: 20px;
+    }
+
+    .ct-chart {
+      position: absolute;
+      bottom: 0px;
+      height: 80%;
     }
   </style>
 </head>
@@ -227,6 +244,7 @@
   </div>
 
 <div class = "graph-class">
+  <div class="row">
   <div class = "class1">
     <p>
       <!-- <i class="fas fa-thermometer-half" style="color:#059e8a;"></i> -->
@@ -269,7 +287,9 @@
     <p id = "particulates_arr"></p>
     <div class="ct-chart ct-perfect-fourth" id="particulates_chart"></div>
   </div>
+  </div>
 
+  <div class="row">
   <div class = "class4">
     <p>
       <!--<i class="fas fa-tint" style="color:#00add6;"></i> -->
@@ -302,7 +322,9 @@
     <p id = "carbondioxide_arr"></p>
     <div class="ct-chart ct-perfect-fourth" id="carbondioxide_chart"></div>
   </div>
+  </div>
 
+  <div class="row">
   <div class = "class7">
     <p>
       <!-- <i class="fas fa-tint" style="color:#00add6;"></i> -->
@@ -335,7 +357,9 @@
     <p id = "pressure_arr"></p>
     <div class="ct-chart ct-perfect-fourth" id="pressure_chart"></div>
   </div>
+  </div>
 
+  <div class="row">
   <div class = "class1">
     <p>
       <!-- <i class="fas fa-tint" style="color:#00add6;"></i> -->
@@ -364,6 +388,7 @@
       <sup class="units">nm</sup>
     </p>
     <div class="ct-chart ct-perfect-fourth" id="typicalparticlesize_chart"></div>
+  </div>
   </div>
 
 </div>
@@ -486,13 +511,13 @@ function updateTable(data){
   document.getElementById("typicalparticlesize").innerHTML = data.typicalparticlesize;
 
   // Update status
-  var temperature_threshold = 90;
-  var humidity_threshold = 90;
+  var temperature_threshold = 35;
+  var humidity_threshold = 60;
   var voc_threshold = 90;
   var co2_threshold = 90;
-  var co_threshold = 90;
+  var co_threshold = 10;
   var smoke_threshold = 90;
-  var pressure_threshold = 90;
+  var pressure_threshold = 1200;
   var particulates_mass_threshold = 90;
   var particulates_number_threshold = 90;
   var typicalparticlesize_threshold = 90;
@@ -624,7 +649,7 @@ function updateTable(data){
 }
 
 // API calls and
-setInterval(function ( ) {
+function update( ) {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
@@ -744,7 +769,9 @@ setInterval(function ( ) {
   };
   xhttp.open("GET", "/data.cgi", true);
   xhttp.send();
-}, 10000 ) ; // 10000 = 10 seconds
+}
+update();
+setInterval(update, 10000 ) ; // 10000 = 10 seconds
 
 
 </script>
