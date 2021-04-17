@@ -36,6 +36,7 @@
 #include "lib/W5500/ioLibrary_Driver-master/Internet/httpServer/httpUtil.h"
 #include "Web/webassets.h"
 
+#include "zcl_samplelight.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,6 +64,11 @@ uint8_t predefined_get_cgi_processor(uint8_t *uri_name, uint8_t *buf, uint16_t *
     {
         *len = sprintf((char*) buf, "{\"ticks\":\"%u\"}",
         Clock_getTicks() * Clock_tickPeriod);
+        return 1;
+    }
+    else if (strcmp((const char*) uri_name, "data.cgi") == 0)
+    {
+        *len = formatJSONString((char*) buf, sizeof(g_recv_buf));
         return 1;
     }
 }

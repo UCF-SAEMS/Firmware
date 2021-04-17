@@ -462,6 +462,7 @@ ZStatus_t SAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturatio
 
 static void SAEMS_SensorsCallback(UArg a0);
 static void SAEMS_getSensorData(void);
+size_t formatJSONString(char * buf, size_t len);
 float scaledHue(void);
 float scaledSaturation(void);
 float scaledIntensity(void);
@@ -1867,28 +1868,43 @@ static void zclSampleLight_processDiscoveryTimeoutCallback(UArg a0)
     Semaphore_post(appSemHandle);
 }
 
-static std::string formatJSONString(void)
+size_t formatJSONString(char * buf, size_t len)
 {
-    std::stringstream ss;
-    ss << "{";
-    ss << "\"temperature\" : " << sensorDataCurrent.temperature << ", ";
-    ss << "\"humidity\" : " << sensorDataCurrent.humidity << ", ";
-    ss << "\"voc\" : " << sensorDataCurrent.voc << ", ";
-    ss << "\"occupancy\" : " << sensorDataCurrent.occupancy << ", ";
-    ss << "\"smoke\" : " << sensorDataCurrent.smoke << ", ";
-    ss << "\"pressure\" : " << sensorDataCurrent.pressure << ", ";
-    ss << "\"pm1mass\" : " << sensorDataCurrent.pm1mass << ", ";
-    ss << "\"pm2mass\" : " << sensorDataCurrent.pm2mass << ", ";
-    ss << "\"pm4mass\" : " << sensorDataCurrent.pm4mass << ", ";
-    ss << "\"pm10mass\" : " << sensorDataCurrent.pm10mass << ", ";
-    ss << "\"pm0number\" : " << sensorDataCurrent.pm0number << ", ";
-    ss << "\"pm1number\" : " << sensorDataCurrent.pm1number << ", ";
-    ss << "\"pm2number\" : " << sensorDataCurrent.pm2number << ", ";
-    ss << "\"pm4number\" : " << sensorDataCurrent.pm4number << ", ";
-    ss << "\"pm10number\" : " << sensorDataCurrent.pm10number << ", ";
-    ss << "\"typicalparticlesize\" : " << sensorDataCurrent.typicalparticlesize;
-    ss <<"}";
-    return ss.str();
+  return snprintf(buf, len, "{\r\n"
+             "\"temperature\" : %.2f, \r\n"
+             "\"pressure\"  : %.2f, \r\n"
+             "\"humidity\" : %.2f, \r\n"
+             "\"voc\" : %d, \r\n"
+             "\"occupancy\" :  %d, \r\n"
+             "\"smoke\" : %d, \r\n"
+             "\"pm1mass\" :  %.2f, \r\n"
+             "\"pm2mass\" :  %.2f, \r\n"
+             "\"pm4mass\" :  %.2f, \r\n"
+             "\"pm10mass\" :  %.2f, \r\n"
+             "\"pm0number\" :  %.2f, \r\n"
+             "\"pm1number\" :  %.2f, \r\n"
+             "\"pm2number\" :  %.2f, \r\n"
+             "\"pm4number\" :  %.2f, \r\n"
+             "\"pm10number\"  %.2f, \r\n"
+             "\"typicalparticlesize\" :  %.2f, \r\n"
+             "}",
+
+             0.1f * sensorDataCurrent.temperature,
+             0.1f * sensorDataCurrent.pressure,
+             0.1f * sensorDataCurrent.humidity,
+             sensorDataCurrent.voc,
+             sensorDataCurrent.occupancy,
+             sensorDataCurrent.smoke,
+             sensorDataCurrent.pm1mass * 0.01f,
+             sensorDataCurrent.pm2mass * 0.01f,
+             sensorDataCurrent.pm4mass * 0.01f,
+             sensorDataCurrent.pm10mass * 0.01f,
+             sensorDataCurrent.pm0number * 0.01f,
+             sensorDataCurrent.pm1number * 0.01f,
+             sensorDataCurrent.pm2number * 0.01f,
+             sensorDataCurrent.pm4number * 0.01f,
+             sensorDataCurrent.pm10number * 0.01f,
+             sensorDataCurrent.typicalparticlesize * 0.01f);
 }
 
 
@@ -1949,7 +1965,6 @@ static void zclSampleLight_process_loop(void)
               UtilTimer_start(&SensorDataClkStruct);
               
               appServiceTaskEvents &= ~SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT;
-              printf ("%s \n", formatJSONString());
             }
 
             if ( appServiceTaskEvents & SAMPLEAPP_DISCOVERY_TIMEOUT_EVT ){
