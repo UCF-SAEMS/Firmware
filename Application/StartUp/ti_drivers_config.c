@@ -505,10 +505,6 @@ const PIN_Config BoardGpioInitTable[CONFIG_PIN_COUNT + 1] = {
     CONFIG_PIN_2 | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_DIS,
     /* Parent Signal: CONFIG_GPTIMER_0 PWM Pin, (DIO15) */
     CONFIG_PIN_10 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MED,
-    /* Parent Signal: CONFIG_SPI_LEDBOARD SCLK, (DIO16) */
-    CONFIG_PIN_21 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MED,
-    /* Parent Signal: CONFIG_SPI_LEDBOARD MISO, (DIO11) */
-    CONFIG_PIN_20 | PIN_INPUT_EN | PIN_NOPULL | PIN_IRQ_DIS,
     /* Parent Signal: CONFIG_SPI_LEDBOARD MOSI, (DIO26) */
     CONFIG_PIN_4 | PIN_INPUT_EN | PIN_NOPULL | PIN_IRQ_DIS,
     /* Parent Signal: CONFIG_SPI_W5500 SCLK, (DIO10) */
@@ -867,8 +863,8 @@ const SPICC26X2DMA_HWAttrs spiCC26X2DMAHWAttrs[CONFIG_SPI_COUNT] = {
         .txChannelBitMask = 1<<UDMA_CHAN_SSI0_TX,
         .minDmaTransferSize = 10,
         .mosiPin = IOID_26,
-        .misoPin = IOID_11,
-        .clkPin  = IOID_16,
+        .misoPin = PIN_UNASSIGNED,
+        .clkPin  = PIN_UNASSIGNED,
         .csnPin  = PIN_UNASSIGNED
     },
     /* CONFIG_SPI_W5500 */

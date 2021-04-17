@@ -72,10 +72,14 @@
             -DZCL_STANDALONE
             -DMAX_DEVICE_TABLE_ENTRIES=50
             -DNVOCMP_NVPAGES=2
+            -I${PROJECT_ROOT}/Application
             -I${PROJECT_ROOT}/Application/StartUp
             -I${PROJECT_ROOT}/Application/Services
             -I${PROJECT_ROOT}/Application/util
             -I${PROJECT_ROOT}/Application/ZStackApi
+            -I${PROJECT_ROOT}/Application/lib/W5500
+            -I${PROJECT_ROOT}/Application/lib/W5500/ioLibrary_Driver-master/Internet
+            -I${PROJECT_ROOT}/Application/lib/W5500/ioLibrary_Driver-master/Ethernet
             -I${PROJECT_ROOT}/Common/gp
             -I${PROJECT_ROOT}/Common/touchlink
             -I${PROJECT_ROOT}/Stack/af
@@ -138,7 +142,6 @@
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/devices/cc13x2_cc26x2/inc
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/devices/cc13x2_cc26x2/driverlib
             -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/common/time
-            -I${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/source/ti/zstack/apps/light
             --cmd_file=${PROJECT_ROOT}/Stack/Config/f8wrouter.opts
             -I${PROJECT_ROOT}/Common/zcl
             -DCOMBO_MAC
@@ -172,9 +175,12 @@
              -llibc.a
         "
         preBuildStep="
+            ${CG_TOOL_ROOT}/bin/armobjcopy.exe --input-target=binary -B arm --output-target=elf32-littlearm  --rename-section .data=alloc,load,readonly,data,contents ../Web/index.html webblob_index.o;
         "
         postBuildStep="
             ${CG_TOOL_HEX} -order MS --memwidth=8 --romwidth=8 --intel -o ${ProjName}.hex ${ProjName};
+            ${CG_TOOL_ROOT}/bin/armsize.exe --format=sysv --common  ${ProjName}.out;
+            ${CG_TOOL_ROOT}/bin/armsize.exe --format=berkeley --common  ${ProjName}.out;
         "
         enableSysConfigTool="true"
         sysConfigBuildOptions="--product ${COM_TI_SIMPLELINK_CC13X2_26X2_SDK_INSTALL_DIR}/.metadata/product.json --compiler ccs"

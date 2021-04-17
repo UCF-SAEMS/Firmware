@@ -124,7 +124,7 @@
 #define EXTADDR_OFFSET 0x2F0
 
 
-#define APP_TASK_STACK_SIZE 3000
+#define APP_TASK_STACK_SIZE 4096
 
 #define SET_RFC_MODE(mode) HWREG( PRCM_BASE + PRCM_O_RFCMODESEL ) = (mode)
 
@@ -150,6 +150,9 @@ extern ApiMac_sAddrExt_t ApiMac_extAddr;
 #ifndef ZNP_NPI
 Task_Struct myTask;
 Char myTaskStack[APP_TASK_STACK_SIZE];
+
+Task_Struct myEthStoreTask;
+Char myEthStoreTaskStack[APP_TASK_STACK_SIZE];
 #endif
 
 #ifndef TIMAC_ROM_IMAGE_BUILD
@@ -248,6 +251,12 @@ Void taskFxn(UArg a0, UArg a1)
     sampleApp_task(&zstack_user0Cfg.nvFps);
 }
 
+Void taskEthStoreFxn(UArg a0, UArg a1)
+{
+    /* Kick off task */
+    extern void ethstore_task(NVINTF_nvFuncts_t *pfnNV);
+    ethstore_task(&zstack_user0Cfg.nvFps);
+}
 #endif
 
 /*!
@@ -380,7 +389,19 @@ int main()
     taskParams.stack = myTaskStack;
     taskParams.stackSize = APP_TASK_STACK_SIZE;
     taskParams.priority = 2;
+    taskParams.instance->name = "ZStack Task";
     Task_construct(&myTask, taskFxn, &taskParams, NULL);
+
+
+    Task_Params taskParamsEthStore;
+
+    /* Configure ethernet and storage task. */
+    Task_Params_init(&taskParamsEthStore);
+    taskParamsEthStore.stack = myEthStoreTaskStack;
+    taskParamsEthStore.stackSize = APP_TASK_STACK_SIZE;
+    taskParamsEthStore.priority = 2;
+    taskParamsEthStore.instance->name = "Eth_Store Task";
+    Task_construct(&myEthStoreTask, taskEthStoreFxn, &taskParamsEthStore, NULL);
 
 #endif
 

@@ -209,6 +209,7 @@ extern "C" {
 /*********************************************************************
  * GLOBAL VARIABLES
  */
+bool hardwareReady = false; // Changes to true once the i2c and serial interfaces are ready
 
 
 /*********************************************************************
@@ -1357,6 +1358,10 @@ void SAEMS_Sensors_Initialization(){
  * @return      none
  */
     int x = 0;
+#include <xdc/runtime/System.h>
+
+     MCP23017 *mcpptr;
+
 void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
 {
   // Save and register the function pointers to the NV drivers
@@ -1366,6 +1371,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   // Initialize application
   zclSampleLight_initialization();
 
+  GPIO_init();
   Display_init();
   SPI_init();
   I2C_init();
@@ -1396,6 +1402,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   // Set up the io expander
   mcp = MCP23017(i2c, 0b0100001);
   mcp.init();
+  mcpptr = &mcp;
 
 #if SAEMS_HARDWARE_VERSION == 0
   led = StaticLED(mcp, MCP_PinMap::I_LED_B, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_R);
@@ -1403,10 +1410,11 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   StaticLED led = StaticLED(mcp, MCP_PinMap::I_LED_R, MCP_PinMap::I_LED_G, MCP_PinMap::I_LED_B);
 #endif
 
-  led.set(RGB_States::RED | RGB_States::GREEN);
+  led.set(RGB_States::NONE);
 
   ledboard.init();
   ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity(), false );
+  hardwareReady = true;
 
   GPIO_setCallback( PIR_SENSOR, SAEMS_detectedMotionInterrupt );
   GPIO_enableInt( PIR_SENSOR );
