@@ -86,6 +86,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <math.h>
+#include <string>
+#include <sstream>
 
 #include "rom_jt_154.h"
 #include "zcomdef.h"
@@ -460,6 +462,7 @@ ZStatus_t SAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturatio
 
 static void SAEMS_SensorsCallback(UArg a0);
 static void SAEMS_getSensorData(void);
+size_t formatJSONString(char * buf, size_t len);
 float scaledHue(void);
 float scaledSaturation(void);
 float scaledIntensity(void);
@@ -1864,6 +1867,47 @@ static void zclSampleLight_processDiscoveryTimeoutCallback(UArg a0)
     // Wake up the application thread when it waits for clock event
     Semaphore_post(appSemHandle);
 }
+
+size_t formatJSONString(char * buf, size_t len)
+{
+  return snprintf(buf, len, "{\r\n"
+             "\"temperature\" : %.2f, \r\n"
+             "\"pressure\"  : %.2f, \r\n"
+             "\"humidity\" : %.2f, \r\n"
+             "\"voc\" : %d, \r\n"
+             "\"occupancy\" :  %d, \r\n"
+             "\"smoke\" : %d, \r\n"
+             "\"pm1mass\" :  %.2f, \r\n"
+             "\"pm2mass\" :  %.2f, \r\n"
+             "\"pm4mass\" :  %.2f, \r\n"
+             "\"pm10mass\" :  %.2f, \r\n"
+             "\"pm0number\" :  %.2f, \r\n"
+             "\"pm1number\" :  %.2f, \r\n"
+             "\"pm2number\" :  %.2f, \r\n"
+             "\"pm4number\" :  %.2f, \r\n"
+             "\"pm10number\"  %.2f, \r\n"
+             "\"typicalparticlesize\" :  %.2f, \r\n"
+             "}",
+
+             0.1f * sensorDataCurrent.temperature,
+             0.1f * sensorDataCurrent.pressure,
+             0.1f * sensorDataCurrent.humidity,
+             sensorDataCurrent.voc,
+             sensorDataCurrent.occupancy,
+             sensorDataCurrent.smoke,
+             sensorDataCurrent.pm1mass * 0.01f,
+             sensorDataCurrent.pm2mass * 0.01f,
+             sensorDataCurrent.pm4mass * 0.01f,
+             sensorDataCurrent.pm10mass * 0.01f,
+             sensorDataCurrent.pm0number * 0.01f,
+             sensorDataCurrent.pm1number * 0.01f,
+             sensorDataCurrent.pm2number * 0.01f,
+             sensorDataCurrent.pm4number * 0.01f,
+             sensorDataCurrent.pm10number * 0.01f,
+             sensorDataCurrent.typicalparticlesize * 0.01f);
+}
+
+
 
 /*******************************************************************************
  * @fn      zclSampleLight_process_loop

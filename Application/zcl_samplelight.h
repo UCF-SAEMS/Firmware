@@ -187,6 +187,7 @@ typedef struct SAEMS_SensorData_t {
     int16_t pm2mass;
     int16_t pm4mass;
     int16_t pm10mass;
+    int16_t pm0number;
     int16_t pm1number;
     int16_t pm2number;
     int16_t pm4number;
@@ -246,6 +247,7 @@ void zclSampleLight_setGPSinkCommissioningMode(const int32_t _itemEntry);
 #endif
 
 extern void SAEMS_getSensorData();
+size_t formatJSONString(char * buf, size_t len);
 #ifdef ZCL_DATA_UPDATE
 extern void SAEMS_updateSensorData(void);
 #endif
