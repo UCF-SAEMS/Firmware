@@ -4,6 +4,8 @@
  * @cliArgs --board "/ti/boards/CC1352P_2_LAUNCHXL" --product "simplelink_cc13x2_26x2_sdk@4.40.04.04"
  * @versions {"data":"2021010520","timestamp":"2021010520","tool":"1.7.0+1746","templates":null}
  */
+scripting.excludeFromBuild("ti_drivers_config.c");
+scripting.excludeFromBuild("ti_drivers_config.h");
 
 /**
  * Import the modules used in this configuration.
@@ -30,6 +32,8 @@ const ECJPAKE  = scripting.addModule("/ti/drivers/ECJPAKE");
 const ECJPAKE1 = ECJPAKE.addInstance();
 const GPIO     = scripting.addModule("/ti/drivers/GPIO", {}, false);
 const GPIO1    = GPIO.addInstance();
+const GPIO2    = GPIO.addInstance();
+const GPIO3    = GPIO.addInstance();
 const I2C      = scripting.addModule("/ti/drivers/I2C", {}, false);
 const I2C1     = I2C.addInstance();
 const NVS      = scripting.addModule("/ti/drivers/NVS");
@@ -42,6 +46,7 @@ const SHA2     = scripting.addModule("/ti/drivers/SHA2");
 const SHA21    = SHA2.addInstance();
 const SPI      = scripting.addModule("/ti/drivers/SPI", {}, false);
 const SPI1     = SPI.addInstance();
+const SPI2     = SPI.addInstance();
 const TRNG     = scripting.addModule("/ti/drivers/TRNG");
 const TRNG1    = TRNG.addInstance();
 const zstack   = scripting.addModule("/ti/zstack/zstack");
@@ -99,6 +104,21 @@ GPIO1.interruptTrigger  = "Rising Edge";
 GPIO1.gpioPin.$assign   = "boosterpack.25";
 GPIO1.pinInstance.$name = "CONFIG_PIN_8";
 
+GPIO2.$name                         = "GPIO_ETH_CS";
+GPIO2.pull                          = "Pull Up";
+GPIO2.mode                          = "Output";
+GPIO2.initialOutputState            = "High";
+GPIO2.gpioPin.$assignAllowConflicts = "boosterpack.40";
+GPIO2.pinInstance.$name             = "CONFIG_PIN_14";
+scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad LED Green on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",GPIO2.gpioPin);
+
+GPIO3.$name              = "GPIO_RTS";
+GPIO3.mode               = "Output";
+GPIO3.initialOutputState = "High";
+GPIO3.pull               = "Pull Up";
+GPIO3.gpioPin.$assign    = "boosterpack.36";
+GPIO3.pinInstance.$name  = "CONFIG_PIN_11";
+
 I2C1.$name                = "CONFIG_I2C_0";
 I2C1.i2c.sdaPin.$assign   = "boosterpack.10";
 I2C1.i2c.sclPin.$assign   = "boosterpack.38";
@@ -125,15 +145,22 @@ RF.rfAntennaPin2.$assign = "43";
 SHA21.$name = "CONFIG_SHA2_0";
 
 SPI1.$name                 = "CONFIG_SPI_LEDBOARD";
-SPI1.spi.sclkPin.$assign   = "boosterpack.7";
-SPI1.spi.misoPin.$assign   = "boosterpack.14";
 SPI1.spi.mosiPin.$assign   = "boosterpack.24";
-SPI1.sclkPinInstance.$name = "CONFIG_PIN_0";
-SPI1.misoPinInstance.$name = "CONFIG_PIN_3";
+SPI1.sclkPinInstance.$name = "CONFIG_PIN_21";
+SPI1.misoPinInstance.$name = "CONFIG_PIN_20";
 SPI1.mosiPinInstance.$name = "CONFIG_PIN_4";
 SPI1.mosiPinInstance.mode  = "Input";
-scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad SPI Bus on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",SPI1.spi.sclkPin);
-scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad SPI Bus on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",SPI1.spi.misoPin);
+
+SPI2.$name                             = "CONFIG_SPI_W5500";
+SPI2.spi.sclkPin.$assignAllowConflicts = "boosterpack.7";
+SPI2.spi.misoPin.$assignAllowConflicts = "boosterpack.14";
+SPI2.spi.mosiPin.$assign               = "boosterpack.15";
+SPI2.sclkPinInstance.$name             = "CONFIG_PIN_15";
+SPI2.misoPinInstance.$name             = "CONFIG_PIN_13";
+SPI2.mosiPinInstance.$name             = "CONFIG_PIN_12";
+scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad SPI Bus on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",SPI2.spi.sclkPin);
+scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad SPI Bus on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",SPI2.spi.misoPin);
+scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad SPI Bus on the CC1352P-2 LaunchPad\. Consider selecting it in 'use hardware' above\. @@@.+?@@@",SPI2.spi.mosiPin);
 
 TRNG1.$name = "CONFIG_TRNG_0";
 
@@ -164,5 +191,10 @@ ADC2.adc.$suggestSolution               = "ADC0";
 I2C1.i2c.$suggestSolution               = "I2C0";
 PWM1.timerObject.timer.$suggestSolution = "GPTM0";
 SPI1.spi.$suggestSolution               = "SSI0";
+SPI1.spi.sclkPin.$suggestSolution       = "boosterpack.5";
+SPI1.spi.misoPin.$suggestSolution       = "boosterpack.23";
 SPI1.spi.dmaRxChannel.$suggestSolution  = "DMA_CH3";
 SPI1.spi.dmaTxChannel.$suggestSolution  = "DMA_CH4";
+SPI2.spi.$suggestSolution               = "SSI1";
+SPI2.spi.dmaRxChannel.$suggestSolution  = "DMA_CH16";
+SPI2.spi.dmaTxChannel.$suggestSolution  = "DMA_CH17";
