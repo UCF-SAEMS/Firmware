@@ -825,6 +825,7 @@ static void SAEMS_getSensorData(void){
       sensorDataNew.pm2mass             = 100 * m.mc_2p5;
       sensorDataNew.pm4mass             = 100 * m.mc_4p0;
       sensorDataNew.pm10mass            = 100 * m.mc_10p0;
+      sensorDataNew.pm0number           = 100 * m.nc_0p5;
       sensorDataNew.pm1number           = 100 * m.nc_1p0;
       sensorDataNew.pm2number           = 100 * m.nc_2p5;          
       sensorDataNew.pm4number           = 100 * m.nc_4p0;

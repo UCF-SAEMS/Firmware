@@ -1091,10 +1091,11 @@ void zclSampleLight_ResetAttributesToDefaultValues(void)
 
     // Update particulates 2.5 mass and number value
     if (abs(sensorDataCurrent.pm2mass - sensorDataNew.pm2mass) > PARTICULATES_UPDATE_THRESHOLD) {
-        sensorDataCurrent.pm1mass = sensorDataNew.pm2mass;
+        sensorDataCurrent.pm1mass = sensorDataNew.pm1mass;
         sensorDataCurrent.pm2mass = sensorDataNew.pm2mass;
         sensorDataCurrent.pm4mass = sensorDataNew.pm4mass;
         sensorDataCurrent.pm10mass = sensorDataNew.pm10mass;
+        sensorDataCurrent.pm0number = sensorDataNew.pm0number;
         sensorDataCurrent.pm1number = sensorDataNew.pm1number;
         sensorDataCurrent.pm2number = sensorDataNew.pm2number;
         sensorDataCurrent.pm4number = sensorDataNew.pm4number;
