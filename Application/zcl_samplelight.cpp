@@ -330,6 +330,8 @@ static Clock_Handle Smoke_Alarm_ClkHandle;
 static Clock_Struct Smoke_Alarm_ClkStruct;
 static Clock_Handle ALARM_CLKHANDLE;
 static Clock_Struct ALARM_CLKSTRUCT;
+static Clock_Handle PowerLED_clkHandle;
+static Clock_Struct PowerLED_ClkStruct;
 
 bool CO_ALARM = false;
 uint8_t CO_BroadcastMsg[] = {"\0\0\30CO"};
@@ -462,6 +464,7 @@ ZStatus_t SAEMS_ColorControlMoveToHueAndSaturationCB( zclCCMoveToHueAndSaturatio
 
 static void SAEMS_SensorsCallback(UArg a0);
 static void SAEMS_getSensorData(void);
+static void SAEMS_Power_LED_Handler(UArg a0);
 size_t formatJSONString(char * buf, size_t len);
 float scaledHue(void);
 float scaledSaturation(void);
@@ -857,34 +860,6 @@ static void SAEMS_getSensorData(void){
         adpd188_reg_read(adpd_dev, 0x60, &samples);
         fifonumrx = fifonumrx - 4;
       }
-
-      // NEED TO ADD IF STATEMENT FOR SMOKE LEVEL
-
-    //--------------------------------------------------------------------------------------
-    // Power System Usage
-
-    // Voltage is obtained from the 5V_MainDet (DIO24)
-    adc = ADC_open(POWER_POLL, &ADCparams);
-    uint16_t voltage;
-    ADC_convert(adc, &voltage);
-    uint32_t voltage_uV = ADC_convertToMicroVolts(adc, voltage);
-    ADC_close(adc);
-
-    // If the voltage is less than 1V
-    if( voltage_uV < 1000000){
-      // Toggle LED between Green and Off - the device is powered from the battery
-      if(led_state == 0){
-        led.set( RGB_States::GREEN );     led_state = 1;
-      }
-      else if(led_state == 1){
-        led.set(false, false, false);     led_state = 0;
-      }
-    }
-    else{
-      // Otherwise, display steady Green and Red on the LED - the device is powered through PoE
-      led.set(RGB_States::RED | RGB_States::GREEN);
-    } 
-      
     //--------------------------------------------------------------------------------------
     printf("--------------------------------------------------------- \n");
     printf("|#%d         S.A.E.M.S Device Measurements               |\n", reading_num++);
@@ -1344,8 +1319,8 @@ void SAEMS_Sensors_Initialization(){
     printf("error starting measurement\n");
   printf("measurements started\n");
   //------------------------------------------------------------
-  // Set the default polling rate (60s = 1 min)
-  sensorDataCurrent.pollingRate = 60;
+  // Set the default polling rate (15s = 15 secs)
+  sensorDataCurrent.pollingRate = 15;
   //------------------------------------------------------------
 }
 // ================================================================================================================
@@ -1419,6 +1394,7 @@ void sampleApp_task(NVINTF_nvFuncts_t *pfnNV)
   ledboard.init();
   ledboard.hsi( scaledHue(), scaledSaturation(), scaledIntensity(), false );
   hardwareReady = true;
+  UtilTimer_start( &PowerLED_ClkStruct );
 
   GPIO_setCallback( PIR_SENSOR, SAEMS_detectedMotionInterrupt );
   GPIO_enableInt( PIR_SENSOR );
@@ -1825,7 +1801,11 @@ static void zclSampleLight_initializeClocks(void)
     1500,
     3000, false, 0);
     // =============================================================
-
+    PowerLED_clkHandle = UtilTimer_construct(
+    &PowerLED_ClkStruct,
+    SAEMS_Power_LED_Handler,
+    100,
+    0, false, 0);
 }
 
 #if ZG_BUILD_ENDDEVICE_TYPE
@@ -1842,7 +1822,7 @@ static void zclSampleLight_processEndDeviceRejoinTimeoutCallback(UArg a0)
 {
     (void)a0; // Parameter is not used
 
-    appServiceTaskEvents |= SAMPLEAPP_END_DEVICE_REJOIN_EVT;
+    appServiceTaskEvents |= SAMPLEAPP_POWER_POLL_EVT;
 
     // Wake up the application thread when it waits for clock event
     Semaphore_post(appSemHandle);
@@ -1850,6 +1830,14 @@ static void zclSampleLight_processEndDeviceRejoinTimeoutCallback(UArg a0)
 #endif
 
 
+static void SAEMS_Power_LED_Handler(UArg a0){
+    (void)a0; // Parameter is not used
+
+    appServiceTaskEvents |= SAMPLEAPP_POWER_POLL_EVT;
+
+    // Wake up the application thread when it waits for clock event
+    Semaphore_post(appSemHandle);
+}
 /*******************************************************************************
  * @fn      zclSampleLight_processDiscoveryTimeoutCallback
  *
@@ -1972,6 +1960,35 @@ static void zclSampleLight_process_loop(void)
               appServiceTaskEvents &= ~SAMPLELIGHT_POLL_CONTROL_TIMEOUT_EVT;
             }
 
+            if( appServiceTaskEvents & SAMPLEAPP_POWER_POLL_EVT ){
+              // Power System Usage
+              // Voltage is obtained from the 5V_MainDet (DIO24)
+              adc = ADC_open(POWER_POLL, &ADCparams);
+              uint16_t voltage;
+              ADC_convert(adc, &voltage);
+              uint32_t voltage_uV = ADC_convertToMicroVolts(adc, voltage);
+              ADC_close(adc);
+
+              // If the voltage is less than 1V
+              if( voltage_uV < 1000000){
+                // Toggle LED between Green and Off - the device is powered from the battery
+                if(led_state == 0){
+                  led.set( RGB_States::RED );     led_state = 1;
+                }
+                else if(led_state == 1){
+                  led.set(RGB_States::NONE);     led_state = 0;
+                }
+              }
+              else{
+                // Otherwise, display steady Green and Red on the LED - the device is powered through PoE
+                led.set(RGB_States::GREEN);
+              }
+
+              appServiceTaskEvents &= ~SAMPLEAPP_POWER_POLL_EVT;
+
+              UtilTimer_start( &PowerLED_ClkStruct );
+            }
+
             if ( appServiceTaskEvents & SAMPLEAPP_DISCOVERY_TIMEOUT_EVT ){
               discoveryInprogress = FALSE;
               appServiceTaskEvents &= ~SAMPLEAPP_DISCOVERY_TIMEOUT_EVT;
@@ -1988,13 +2005,13 @@ static void zclSampleLight_process_loop(void)
 
 
 #if ZG_BUILD_ENDDEVICE_TYPE
-            if ( appServiceTaskEvents & SAMPLEAPP_END_DEVICE_REJOIN_EVT )
+            if ( appServiceTaskEvents & SAMPLEAPP_POWER_POLL_EVT )
             {
               zstack_bdbZedAttemptRecoverNwkRsp_t zstack_bdbZedAttemptRecoverNwkRsp;
 
               Zstackapi_bdbZedAttemptRecoverNwkReq(appServiceTaskId,&zstack_bdbZedAttemptRecoverNwkRsp);
 
-              appServiceTaskEvents &= ~SAMPLEAPP_END_DEVICE_REJOIN_EVT;
+              appServiceTaskEvents &= ~SAMPLEAPP_POWER_POLL_EVT;
             }
 #endif
         }
